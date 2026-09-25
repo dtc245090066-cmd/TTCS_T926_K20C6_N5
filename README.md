@@ -1,285 +1,287 @@
-# 🏨 HỆ THỐNG QUẢN LÝ KHÁCH SẠN
+Hệ thống quản lý phòng cho thuê
 
-## 📌 Giới thiệu
+Ứng dụng hỗ trợ quản lý tài khoản, phòng và thể loại phòng; theo dõi quá trình cho thuê, trả phòng; tổng hợp doanh thu và xuất báo cáo PDF. Tài liệu này mô tả yêu cầu chức năng được cung cấp cho dự án, không khẳng định các chức năng đã hoàn tất trong mã nguồn.
 
-**Hệ thống Quản lý Khách sạn** là ứng dụng hỗ trợ nhân viên và quản lý khách sạn thực hiện các nghiệp vụ quản lý phòng, cho thuê – trả phòng, theo dõi trạng thái phòng, quản lý khách hàng và thống kê doanh thu.
+Mục lục
 
-Dự án được phát triển theo phương pháp **Agile/Scrum**, sử dụng **Product Backlog**, User Story, Story Point và chia chức năng theo từng Sprint để thuận tiện cho quá trình phát triển, kiểm thử và nghiệm thu.
+Tổng quan
 
----
+Chức năng
 
-## 🎯 Mục tiêu dự án
+Quy trình sử dụng
 
-Hệ thống được xây dựng nhằm:
+Quy tắc nghiệp vụ
 
-* Số hóa quy trình quản lý phòng khách sạn.
-* Giảm thao tác thủ công trong quá trình cho thuê và trả phòng.
-* Theo dõi nhanh trạng thái phòng theo thời gian thực.
-* Quản lý thông tin khách thuê và lịch sử thuê phòng.
-* Tự động tính tiền thuê phòng.
-* Hỗ trợ quản lý theo dõi doanh thu theo tháng và năm.
-* Phân quyền chức năng phù hợp với từng loại người dùng.
-* Đảm bảo dữ liệu được quản lý tập trung, chính xác và dễ tra cứu.
+Danh sách yêu cầu
 
----
+Tiêu chí nghiệm thu
 
-## 👥 Người dùng hệ thống
+Cài đặt và chạy dự án
 
-Hệ thống gồm hai nhóm người dùng chính:
+Tổng quan
 
-### Quản lý
+Hệ thống dành cho người dùng có tài khoản quản lý phòng cho thuê. Sau khi đăng nhập, người dùng xem danh sách phòng trên trang chủ, cập nhật phòng và thể loại phòng, thực hiện cho thuê/trả phòng, xem thống kê doanh thu theo năm.
 
-Có quyền quản lý toàn bộ hệ thống, bao gồm:
+Phạm vi tài liệu: 19 yêu cầu trong bảng đặc tả được cung cấp. Tài liệu gốc chưa nêu công nghệ, cấu trúc mã nguồn, tên ứng dụng chính thức, cách triển khai hoặc tiến độ thực hiện.
 
-* Quản lý phòng.
-* Theo dõi hoạt động thuê phòng.
-* Quản lý tài khoản nhân viên.
-* Xem lịch sử thuê.
-* Xem thống kê doanh thu.
-* Xuất báo cáo.
+Chức năng
 
-### Lễ tân / Nhân viên khách sạn
+1. Tài khoản và hồ sơ
 
-Thực hiện các nghiệp vụ hằng ngày như:
+Đăng nhập bằng email và mật khẩu; thông báo khi thông tin đăng nhập không đúng.
 
-* Đăng nhập hệ thống.
-* Xem sơ đồ phòng.
-* Kiểm tra trạng thái phòng.
-* Cho khách thuê phòng.
-* Trả phòng.
-* Tra cứu thông tin khách hàng.
-* Xem lịch sử thuê theo quyền được cấp.
+Chỉ cho phép vào trang chủ sau khi đăng nhập; duy trì phiên đăng nhập bằng session.
 
----
+Đăng xuất khỏi hệ thống.
 
-## ⚙️ Chức năng chính
+Đổi mật khẩu: nhập mật khẩu mới, xác nhận và kiểm tra dữ liệu trước khi lưu.
 
-### 🔐 1. Xác thực và tài khoản
+Cập nhật họ tên, ngày sinh, số điện thoại và ảnh đại diện; email không được chỉnh sửa.
 
-* Đăng nhập bằng email và mật khẩu.
-* Đăng xuất khỏi hệ thống.
-* Quản lý phiên đăng nhập.
-* Đổi mật khẩu.
-* Cập nhật thông tin cá nhân.
-* Phân quyền Quản lý và Lễ tân.
-* Quản lý tài khoản nhân viên.
-* Hỗ trợ quên mật khẩu qua email trong phiên bản mở rộng.
+2. Phòng cho thuê
 
-### 🛏️ 2. Quản lý phòng
+Xem danh sách phòng dạng lưới trên trang chủ. Mỗi phòng hiển thị mã phòng, trạng thái, giờ vào và giờ ra khi có dữ liệu tương ứng.
 
-* Thêm phòng mới.
-* Cập nhật thông tin phòng.
-* Xóa hoặc xóa mềm phòng.
-* Quản lý mã phòng, loại phòng và giá thuê.
-* Các loại phòng gồm:
+Thêm hoặc cập nhật phòng với các thông tin: mã phòng, mô tả ngắn, hình ảnh, thể loại phòng, giá thuê và trạng thái.
 
-  * Phòng Đơn.
-  * Phòng Đôi.
-  * Phòng VIP.
-* Tìm kiếm phòng theo mã phòng, loại phòng hoặc mức giá.
+Tải ảnh lên khi thêm hoặc sửa phòng; kiểm tra dữ liệu bắt buộc trước khi lưu.
 
-### 🟢 3. Sơ đồ và trạng thái phòng
+Xóa phòng sau khi xác nhận; chặn xóa phòng đang được thuê.
 
-Trang chủ hiển thị các phòng dưới dạng lưới để nhân viên dễ dàng theo dõi.
+Hiển thị số lượng phòng theo trạng thái và lọc danh sách khi chọn một trạng thái.
 
-Phòng được chia thành hai trạng thái chính:
+Phân biệt trạng thái trực quan: phòng trống màu xanh, phòng đã cho thuê màu đỏ.
 
-* **Phòng trống**
-* **Đã cho thuê**
+3. Cho thuê và trả phòng
 
-Hệ thống đồng thời hiển thị:
+Từ danh sách phòng, chọn Cho thuê để xem thông tin phòng và nhập thời điểm trả dự kiến.
 
-* Tổng số phòng.
-* Số phòng đang trống.
-* Số phòng đang được thuê.
-* Bộ lọc phòng theo trạng thái.
+Tự lấy thời điểm bắt đầu thuê từ thời gian hệ thống, tính thời lượng thuê và số tiền dự kiến theo giá phòng.
 
-### 📝 4. Thuê và trả phòng
+Kiểm tra dữ liệu trước khi lưu, sau đó quay lại danh sách phòng.
 
-Hệ thống hỗ trợ toàn bộ quy trình thuê phòng:
+Chỉ hiển thị thao tác Trả phòng với phòng đang được thuê; sau khi trả, trạng thái phòng chuyển về phòng trống.
 
-**Cho thuê phòng → Ghi nhận khách hàng → Ghi nhận thời gian thuê → Trả phòng → Tính tiền → Cập nhật trạng thái phòng**
+4. Thể loại phòng
 
-Thông tin phiếu thuê bao gồm:
+Xem danh sách, thêm, sửa và xóa thể loại phòng.
 
-* Mã phòng.
-* Họ tên khách hàng.
-* Số điện thoại.
-* CMND/CCCD.
-* Giờ nhận phòng.
-* Giờ trả dự kiến.
-* Giờ trả thực tế.
-* Giá thuê tại thời điểm thuê.
-* Số giờ thuê.
-* Thành tiền.
-* Trạng thái phiếu thuê.
+Các thể loại được nêu trong yêu cầu: phòng đơn, phòng đôi và phòng VIP.
 
-Ngoài ra, hệ thống có thể mở rộng:
+5. Thống kê thu nhập
 
-* Gia hạn thời gian thuê.
-* Hủy phiếu thuê.
-* In hóa đơn PDF.
-* Xem lịch sử thuê phòng.
+Xem bảng doanh thu gồm 12 tháng của năm hiện tại, với hai cột Tháng và Tổng tiền, cùng tổng cả năm.
 
-### 💰 5. Thống kê và báo cáo
+Chọn năm khác để xem doanh thu theo từng tháng của năm đó.
 
-Quản lý có thể:
+Xuất bảng thống kê đang xem thành tệp PDF.
 
-* Xem doanh thu theo từng tháng.
-* Chọn năm cần thống kê.
-* Xem tổng doanh thu trong năm.
-* Xuất báo cáo doanh thu ra PDF.
-* Xem biểu đồ doanh thu theo tháng.
+Quy trình sử dụng
 
-Doanh thu chỉ được ghi nhận đối với các phiếu thuê đã hoàn tất trả phòng.
+Đăng nhập bằng tài khoản hợp lệ để truy cập trang chủ.
 
-### 👤 6. Quản lý khách hàng
+Tạo các thể loại phòng và thêm phòng với thông tin, ảnh và giá thuê.
 
-Hỗ trợ tra cứu khách hàng thông qua:
+Theo dõi trạng thái phòng, lọc để tìm phòng trống và thực hiện cho thuê.
 
-* Số điện thoại.
-* CMND/CCCD.
+Kiểm tra thời gian và số tiền dự kiến trước khi lưu lượt thuê.
 
-Thông tin tra cứu có thể bao gồm:
+Khi kết thúc lượt thuê, thao tác trả phòng để phòng trở lại trạng thái trống.
 
-* Họ tên khách.
-* Thông tin liên hệ.
-* Số lần thuê phòng.
-* Danh sách và lịch sử các lần thuê.
+Mở mục thống kê, chọn năm cần xem và xuất PDF khi cần báo cáo.
 
----
+Quy tắc nghiệp vụ
 
-## 📋 Một số quy tắc nghiệp vụ
+Mã
 
-* Mỗi phòng có một **mã phòng duy nhất**.
-* Mã phòng không được thay đổi sau khi tạo.
-* Phòng mới mặc định ở trạng thái **Phòng trống**.
-* Phòng đang được thuê không thể cho thuê thêm cho khách khác.
-* Phòng đang cho thuê không được xóa.
-* Giờ nhận phòng được lấy tự động theo thời gian của hệ thống.
-* Giá thuê tại thời điểm tạo phiếu được lưu lại và không bị ảnh hưởng khi giá phòng thay đổi sau đó.
-* Thời gian thuê được tính theo giờ và làm tròn lên.
-* Thành tiền được tính theo công thức:
+Quy tắc
 
-```text
-Thành tiền = Số giờ thuê × Giá thuê tại thời điểm thuê
-```
+BR-01
 
-* Doanh thu chỉ được ghi nhận khi phiếu thuê có trạng thái **Đã trả**.
-* Email tài khoản đăng nhập phải là duy nhất.
-* Mật khẩu được lưu dưới dạng mã hóa/băm, không lưu mật khẩu dạng văn bản thuần.
+Người dùng phải đăng nhập trước khi truy cập trang chủ và các chức năng quản lý.
 
----
+BR-02
 
-## 🗂️ Các nhóm chức năng của dự án
+Phòng mới mặc định ở trạng thái trống.
 
-Dự án được chia thành các Epic chính:
+BR-03
 
-| Epic | Nội dung               |
-| ---- | ---------------------- |
-| E01  | Xác thực & Tài khoản   |
-| E02  | Quản lý phòng          |
-| E03  | Sơ đồ & Theo dõi phòng |
-| E04  | Thuê & Trả phòng       |
-| E05  | Thống kê & Báo cáo     |
-| E06  | Khách hàng             |
-| E07  | Nền tảng kỹ thuật      |
+Không được xóa phòng đang cho thuê.
 
----
+BR-04
 
-## 🚀 Kế hoạch phát triển
+Chỉ phòng đang cho thuê mới có thao tác Trả phòng.
 
-Dự án được triển khai theo nhiều Sprint.
+BR-05
 
-### Sprint 1
+Email trong hồ sơ cá nhân không được chỉnh sửa.
 
-* Thiết lập môi trường phát triển.
-* Thiết kế cơ sở dữ liệu.
-* Tạo dữ liệu mẫu.
-* Đăng nhập.
-* Đăng xuất.
-* Hiển thị sơ đồ phòng.
-* Thêm phòng mới.
+BR-06
 
-### Sprint 2
+Thời điểm bắt đầu thuê được lấy từ thời gian hệ thống khi lập lượt thuê.
 
-* Cho thuê phòng.
-* Trả phòng.
-* Cập nhật phòng.
-* Xóa phòng.
-* Hiển thị thống kê trạng thái phòng.
+BR-07
 
-### Sprint 3
+Thời lượng thuê và tiền thuê được tính từ thời điểm bắt đầu, thời điểm trả đã chọn và giá phòng; đơn vị thời gian tính giá phải được thống nhất trong triển khai.
 
-* Lọc phòng theo trạng thái.
-* Thống kê doanh thu.
-* Chọn năm thống kê.
-* Đổi mật khẩu.
-* Cập nhật thông tin cá nhân.
-* Xem lịch sử thuê.
+BR-08
 
-### Sprint 4
+Các biểu mẫu thêm, sửa, cho thuê và đổi mật khẩu phải kiểm tra dữ liệu trước khi lưu.
 
-* Xuất báo cáo PDF.
-* Phân quyền người dùng.
-* Rà soát bảo mật.
-* Kiểm thử tích hợp.
-* Nghiệm thu và triển khai hệ thống.
+Cần chốt trước khi lập trình: giá thuê tính theo giờ, ngày hay đơn vị khác; cách làm tròn thời lượng; thời điểm ghi nhận doanh thu; cách xử lý lịch sử thuê khi xóa phòng/thể loại phòng. Bảng yêu cầu gốc chưa quy định các chi tiết này.
 
----
+Danh sách yêu cầu
 
-## 🔒 Bảo mật
+ID
 
-Hệ thống hướng tới các yêu cầu bảo mật cơ bản:
+Nhóm
 
-* Mật khẩu được băm trước khi lưu vào cơ sở dữ liệu.
-* Kiểm tra quyền trước khi truy cập chức năng.
-* Quản lý trạng thái đăng nhập bằng session.
-* Sử dụng truy vấn có tham số để hạn chế SQL Injection.
-* Kiểm tra và xác thực dữ liệu đầu vào.
-* Hạn chế người dùng truy cập các chức năng không thuộc quyền của mình.
+Yêu cầu
 
----
+US-01
 
-## 📌 Phạm vi phiên bản hiện tại
+Tài khoản
 
-Phiên bản đầu tập trung vào các nghiệp vụ cốt lõi:
+Đăng nhập
 
-**Đăng nhập → Quản lý phòng → Theo dõi trạng thái phòng → Cho thuê → Trả phòng → Lịch sử thuê → Thống kê doanh thu.**
+US-02
 
-Một số chức năng nâng cao như **đặt phòng trước**, quản lý khách hàng chuyên sâu hoặc các tính năng mở rộng khác sẽ được xem xét trong những phiên bản tiếp theo.
+Tài khoản
 
----
+Đăng xuất
 
-## 👨‍💻 Phát triển dự án
+US-03
 
-Dự án được quản lý mã nguồn bằng **Git/GitHub** và áp dụng quy trình làm việc theo nhánh:
+Phòng
 
-```text
-main
-develop
-feature/*
-```
+Thêm phòng
 
-Mỗi chức năng được phát triển trên một nhánh riêng trước khi kiểm thử và tích hợp vào nhánh chính.
+US-04
 
----
+Phòng
 
-## 📄 Tài liệu dự án
+Xóa phòng
 
-Các tài liệu chính của dự án bao gồm:
+US-05
 
-* Product Backlog.
-* Sprint Plan.
-* Quy trình nghiệp vụ.
-* Từ điển dữ liệu.
-* Quy tắc nghiệp vụ.
-* Thiết kế cơ sở dữ liệu / ERD.
-* Tài liệu kiểm thử.
-* Hướng dẫn sử dụng và triển khai.
+Phòng
 
----
+Xem danh sách phòng
 
-## 📜 License
+US-06
 
-Dự án được xây dựng phục vụ mục đích **học tập và thực hành phát triển phần mềm**.
+Phòng
+
+Cập nhật phòng
+
+US-07
+
+Thuê phòng
+
+Cho thuê phòng
+
+US-08
+
+Thuê phòng
+
+Trả phòng
+
+US-09
+
+Tài khoản
+
+Đổi mật khẩu
+
+US-10
+
+Tài khoản
+
+Cập nhật thông tin cá nhân
+
+US-11
+
+Phòng
+
+Xem số lượng phòng theo trạng thái
+
+US-12
+
+Phòng
+
+Lọc phòng theo trạng thái
+
+US-13
+
+Báo cáo
+
+Xem thu nhập 12 tháng của năm hiện tại
+
+US-14
+
+Báo cáo
+
+Xem thu nhập theo năm được chọn
+
+US-15
+
+Báo cáo
+
+Xuất thống kê thu nhập ra PDF
+
+US-16
+
+Thể loại phòng
+
+Xem danh sách thể loại
+
+US-17
+
+Thể loại phòng
+
+Thêm thể loại
+
+US-18
+
+Thể loại phòng
+
+Cập nhật thể loại
+
+US-19
+
+Thể loại phòng
+
+Xóa thể loại
+
+Tiêu chí nghiệm thu
+
+Đăng nhập đúng đưa người dùng vào hệ thống; đăng nhập sai hiển thị lỗi; sau đăng xuất không còn truy cập được trang yêu cầu xác thực.
+
+Phòng mới có trạng thái trống; ảnh được tải lên và hiển thị; biểu mẫu từ chối dữ liệu không hợp lệ.
+
+Xóa phòng đang cho thuê bị chặn; xóa phòng đủ điều kiện cần xác nhận và có thông báo kết quả.
+
+Danh sách phòng thể hiện đúng mã, trạng thái và thời gian liên quan; bộ lọc và số lượng theo trạng thái khớp với dữ liệu.
+
+Lượt thuê lấy đúng giờ bắt đầu, tính thời lượng và số tiền theo quy tắc đã thống nhất; trả phòng cập nhật trạng thái về trống.
+
+Báo cáo có đủ 12 tháng, tổng năm chính xác; đổi năm cập nhật số liệu; PDF chứa bảng đang xem.
+
+Hồ sơ cho phép sửa các trường được phép, không cho sửa email; đổi mật khẩu kiểm tra xác nhận.
+
+Danh sách và các thao tác thêm, sửa, xóa thể loại phòng hoạt động theo quy tắc dữ liệu đã thống nhất.
+
+Cài đặt và chạy dự án
+
+Tài liệu đầu vào chỉ có danh sách yêu cầu, chưa có mã nguồn hoặc thông tin về ngôn ngữ lập trình, framework, cơ sở dữ liệu và biến môi trường. Vì vậy chưa thể cung cấp lệnh cài đặt/chạy chính xác. Khi đưa README này vào repository, hãy bổ sung:
+
+Yêu cầu môi trường và phiên bản công cụ.
+
+Lệnh tải mã nguồn và cài đặt thư viện.
+
+Cách cấu hình biến môi trường và cơ sở dữ liệu; cung cấp tệp cấu hình mẫu, không đưa mật khẩu thật vào repository.
+
+Lệnh khởi tạo dữ liệu, chạy ứng dụng và chạy kiểm thử (nếu có).
+
+Địa chỉ truy cập, cách tạo tài khoản ban đầu và hình ảnh giao diện thực tế.
+
+README được biên soạn từ bảng 19 user story được cung cấp; cần cập nhật theo mã nguồn và các quyết định nghiệp vụ chính thức của dự án.
