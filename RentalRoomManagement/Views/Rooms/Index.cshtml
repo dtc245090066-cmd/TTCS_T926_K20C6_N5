@@ -1,0 +1,121 @@
+﻿@model IEnumerable<RentalRoomManagement.Models.Room>
+
+@{
+    ViewData["Title"] = "Danh sách phòng";
+}
+
+<div class="container mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <h2>Danh sách phòng</h2>
+
+        <a asp-action="Create"
+           class="btn btn-primary">
+            + Thêm phòng
+        </a>
+
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">
+            @TempData["Success"]
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger">
+            @TempData["Error"]
+        </div>
+    }
+
+    @if (!Model.Any())
+    {
+        <div class="alert alert-info">
+            Chưa có phòng nào trong hệ thống.
+        </div>
+    }
+    else
+    {
+        <table class="table table-bordered table-hover">
+
+            <thead class="table-dark">
+                <tr>
+                    <th>Mã phòng</th>
+                    <th>Mô tả</th>
+                    <th>Thể loại</th>
+                    <th>Giá thuê</th>
+                    <th>Trạng thái</th>
+                    <th>Thao tác</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                @foreach (var room in Model)
+                {
+                    <tr>
+                        <td>@room.RoomCode</td>
+
+                        <td>@room.Description</td>
+
+                        <td>@room.RoomType</td>
+
+                        <td>
+                            @room.Price.ToString("N0") VNĐ
+                        </td>
+
+                        <td>
+                            @if (room.Status == "Trống")
+                            {
+                                <span class="badge bg-success">
+                                    Trống
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-danger">
+                                    @room.Status
+                                </span>
+                            }
+                        </td>
+
+                        <td>
+
+                            @if (room.Status == "Trống")
+                            {
+                                <form asp-action="Delete"
+                                      asp-route-id="@room.Id"
+                                      method="post"
+                                      onsubmit="return confirm('Bạn có chắc chắn muốn xóa phòng @room.RoomCode không?');">
+
+                                    @Html.AntiForgeryToken()
+
+                                    <button type="submit"
+                                            class="btn btn-danger btn-sm">
+                                        Xóa
+                                    </button>
+
+                                </form>
+                            }
+                            else
+                            {
+                                <button type="button"
+                                        class="btn btn-secondary btn-sm"
+                                        disabled>
+                                    Không thể xóa
+                                </button>
+                            }
+
+                        </td>
+                    </tr>
+                }
+
+            </tbody>
+
+        </table>
+    }
+
+</div>
