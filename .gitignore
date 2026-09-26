@@ -1,0 +1,22 @@
+# Node.js
+node_modules/
+backend/node_modules/
+
+# Environment variables
+.env
+backend/.env
+
+# Visual Studio / SSMS
+.vs/
+**/.vs/
+
+# Logs
+*.log
+npm-debug.log*
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
