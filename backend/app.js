@@ -1,40 +1,42 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 require('dotenv').config();
 
 const pool = require('./config/db');
+const authRoutes = require('./routes/authRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
+const systemRoutes = require('./routes/systemRoutes');
+const userModel = require('./models/userModel');
 
 const app = express();
 
-app.use(cors());
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
+app.use('/api/auth', authRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/test-db', systemRoutes);
+
 app.get('/', (req, res) => {
-    res.json({
-        message: 'Hotel Management API is running'
-    });
-});
-
-app.get('/api/test-db', async (req, res) => {
-    try {
-        const [rows] = await pool.query('SELECT DATABASE() AS database_name');
-
-        res.json({
-            message: 'Kết nối MySQL thành công',
-            database: rows[0].database_name
-        });
-    } catch (error) {
-        console.error(error);
-
-        res.status(500).json({
-            message: 'Kết nối MySQL thất bại',
-            error: error.message
-        });
-    }
+    res.sendFile(path.join(__dirname, '..', 'frontend', 'index.html'));
 });
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
-    console.log(`Server đang chạy tại http://localhost:${PORT}`);
-});
+app.use(express.static(path.join(__dirname, '..', 'frontend')));
+
+async function startServer() {
+    try {
+        await userModel.ensureSessionTable();
+
+        app.listen(PORT, () => {
+            console.log(`Server đang chạy tại http://localhost:${PORT}`);
+        });
+    } catch (error) {
+        console.error('Không thể khởi động server. Hãy kiểm tra cấu hình MySQL trong backend/.env.', error.message);
+        process.exitCode = 1;
+    }
+}
+
+startServer();
