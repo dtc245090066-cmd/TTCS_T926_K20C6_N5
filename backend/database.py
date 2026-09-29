@@ -7,7 +7,7 @@ from werkzeug.security import generate_password_hash
 
 
 DEMO_EMAIL = "admin@lumihotel.local"
-DEMO_PASSWORD = "Hotel@123"
+DEMO_PASSWORD = "Hotel2026@"
 
 
 class Database:
@@ -103,6 +103,11 @@ class Database:
                         generate_password_hash(DEMO_PASSWORD),
                         "manager",
                     ),
+                )
+            else:
+                connection.execute(
+                    "UPDATE users SET password_hash = ? WHERE id = ?",
+                    (generate_password_hash(DEMO_PASSWORD), existing_user["id"]),
                 )
 
             room_count = connection.execute(

@@ -69,7 +69,7 @@ hotel_management.db (SQLite)
 
 ```text
 Email:    admin@lumihotel.local
-Mật khẩu: Hotel@123
+Mật khẩu: Hotel2026@
 ```
 
 ## 5. Chạy trên Windows PowerShell
