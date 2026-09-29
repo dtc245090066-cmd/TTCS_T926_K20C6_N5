@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LumiHotel — Quản lý khách sạn</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<section id="authView" class="auth-shell">
+  <div class="auth-image"></div>
+  <div class="auth-card">
+    <div class="brand auth-brand">
+      <div class="brand-mark">L</div>
+      <div><div class="brand-name">Lumi<span>Hotel</span></div><div class="brand-sub">Hotel management</div></div>
+    </div>
+    <div id="loginPanel">
+      <span class="eyebrow">LOTUS STAY / LUMIHOTEL</span>
+      <h1>Chào mừng<br><em>quay trở lại.</em></h1>
+      <p class="auth-muted">Đăng nhập để quản lý phòng, đặt phòng và vận hành khách sạn.</p>
+      <form id="loginForm" class="auth-form">
+        <label>Email<input id="loginEmail" type="email" value="admin@lumihotel.local" required></label>
+        <label>Mật khẩu<input id="loginPassword" type="password" value="Hotel@123" required></label>
+        <button class="primary-btn wide" type="submit">Đăng nhập hệ thống →</button>
+      </form>
+      <p id="loginMessage" class="form-message"></p>
+      <button class="link-button" id="showRegister">Tạo tài khoản nhân viên</button>
+    </div>
+
+    <div id="registerPanel" class="hidden">
+      <span class="eyebrow">TẠO TÀI KHOẢN</span>
+      <h1>Thêm nhân viên<br><em>mới.</em></h1>
+      <form id="registerForm" class="auth-form">
+        <label>Họ và tên<input id="registerName" required></label>
+        <label>Email<input id="registerEmail" type="email" required></label>
+        <label>Mật khẩu<input id="registerPassword" type="password" minlength="8" required></label>
+        <button class="primary-btn wide" type="submit">Tạo tài khoản</button>
+      </form>
+      <p id="registerMessage" class="form-message"></p>
+      <button class="link-button" id="showLogin">← Quay lại đăng nhập</button>
+    </div>
+
+    <div class="demo-note">
+      <strong>Tài khoản demo</strong>
+      <span>admin@lumihotel.local · Hotel@123</span>
+    </div>
+  </div>
+</section>
+
+<div id="dashboardView" class="app-shell hidden">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-mark">L</div>
+      <div><div class="brand-name">Lumi<span>Hotel</span></div><div class="brand-sub">Hotel management</div></div>
+    </div>
+
+    <div class="hotel-card">
+      <div class="hotel-photo"></div>
+      <div><strong>Lumi Grand Hotel</strong><small>Chi nhánh trung tâm</small></div>
+      <span class="hotel-dot">●</span>
+    </div>
+
+    <nav class="nav">
+      <p class="nav-label">TỔNG QUAN</p>
+      <button class="nav-item active" data-view="overview"><span>⌂</span>Tổng quan</button>
+      <button class="nav-item" data-view="bookings"><span>▤</span>Đặt phòng <b class="badge" id="bookingBadge">0</b></button>
+      <button class="nav-item" data-view="rooms"><span>▦</span>Phòng</button>
+      <button class="nav-item" data-view="guests"><span>♙</span>Khách hàng</button>
+      <p class="nav-label">VẬN HÀNH</p>
+      <button class="nav-item" data-view="housekeeping"><span>✦</span>Buồng phòng</button>
+      <button class="nav-item" data-view="reports"><span>◔</span>Báo cáo</button>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <div class="help-card"><div class="help-icon">?</div><div><strong>Cần hỗ trợ?</strong><small>Trung tâm trợ giúp Lumi</small></div></div>
+      <div class="profile">
+        <div class="avatar">LH</div>
+        <div class="profile-info"><strong id="userName">Admin</strong><small id="userRole">Quản lý</small></div>
+        <button class="icon-btn" id="logoutBtn" title="Đăng xuất">↪</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <button class="mobile-menu" id="mobileMenu">☰</button>
+        <span class="eyebrow">LUMIHOTEL / HỆ THỐNG QUẢN LÝ</span>
+        <h1>Quản lý <span>khách sạn</span></h1>
+      </div>
+      <div class="top-actions">
+        <button class="search"><span>⌕</span><input id="searchInput" placeholder="Tìm phòng, khách..." /></button>
+        <button class="icon-btn notification">♢<i></i></button>
+        <button class="primary-btn" id="bookingBtn">＋ Đặt phòng mới</button>
+      </div>
+    </header>
+
+    <section class="dashboard-section active" data-view-panel="overview">
+      <section class="hero">
+        <div class="hero-image"></div>
+        <div class="hero-copy">
+          <div class="hero-kicker">LUMI GRAND HOTEL · HÔM NAY</div>
+          <h2>Chào mừng đến<br><em>một ngày thật đẹp.</em></h2>
+          <p>Quản lý phòng, đặt phòng và trải nghiệm khách hàng trong một không gian trực quan, tinh tế.</p>
+          <div class="hero-actions">
+            <button class="light-btn" data-go="bookings">Xem đặt phòng →</button>
+            <button class="ghost-btn" data-go="rooms">Xem phòng</button>
+          </div>
+        </div>
+        <div class="hero-chip">● Khách sạn đang hoạt động</div>
+      </section>
+
+      <section class="stats-grid">
+        <article class="stat-card featured"><div class="stat-head"><span>Doanh thu</span><span class="stat-icon">₫</span></div><div class="stat-value" id="statRevenue">0₫</div><div class="stat-foot"><span class="up">●</span><span>tổng đơn đặt phòng</span></div></article>
+        <article class="stat-card"><div class="stat-head"><span>Đặt phòng</span><span class="stat-icon">▤</span></div><div class="stat-value" id="statBookings">0</div><div class="stat-foot"><span class="up">●</span><span>đơn trong hệ thống</span></div></article>
+        <article class="stat-card"><div class="stat-head"><span>Phòng trống</span><span class="stat-icon">▦</span></div><div class="stat-value" id="statAvailable">0</div><div class="stat-foot"><span>có thể đặt</span></div></article>
+        <article class="stat-card"><div class="stat-head"><span>Công suất phòng</span><span class="stat-icon">◉</span></div><div class="stat-value" id="statOccupancy">0%</div><div class="stat-foot"><span class="warning" id="statOccupied">0</span><span>phòng đang ở</span></div></article>
+      </section>
+
+      <section class="content-grid">
+        <article class="panel chart-panel">
+          <div class="panel-head"><div><span class="section-label">PHÂN TÍCH KINH DOANH</span><h3>Doanh thu khách sạn</h3></div><select id="periodSelect"><option>7 ngày qua</option><option>30 ngày qua</option></select></div>
+          <div class="chart-summary"><strong id="chartTotal">0₫</strong><span class="up">Dữ liệu SQLite</span></div>
+          <div class="chart-wrap"><canvas id="salesChart"></canvas></div>
+        </article>
+
+        <article class="panel room-highlight">
+          <div class="panel-head"><div><span class="section-label">PHÒNG NỔI BẬT</span><h3>Tình trạng hôm nay</h3></div><button class="text-btn" data-go="rooms">Tất cả →</button></div>
+          <div id="featuredRoom"></div>
+          <div class="room-mini-grid" id="miniRooms"></div>
+        </article>
+      </section>
+
+      <section class="panel bookings-panel">
+        <div class="panel-head"><div><span class="section-label">LƯU TRÚ</span><h3>Đặt phòng gần đây</h3></div><button class="text-btn" data-go="bookings">Xem tất cả →</button></div>
+        <div class="table-scroll"><table><thead><tr><th>MÃ ĐẶT</th><th>KHÁCH HÀNG</th><th>PHÒNG</th><th>CHECK-IN</th><th>CHECK-OUT</th><th>TỔNG TIỀN</th><th>TRẠNG THÁI</th></tr></thead><tbody id="recentBookings"></tbody></table></div>
+      </section>
+    </section>
+
+    <section class="dashboard-section" data-view-panel="rooms">
+      <div class="section-page-head"><div><span class="section-label">QUẢN LÝ PHÒNG</span><h2>Sơ đồ phòng</h2><p>CRUD phòng được xử lý qua <b>RoomService</b> và SQLite.</p></div><button class="primary-btn" id="openRoomForm">＋ Thêm phòng</button></div>
+      <div class="filter-group"><button class="chip active" data-filter="all">Tất cả</button><button class="chip" data-filter="available">Trống</button><button class="chip" data-filter="occupied">Đang ở</button><button class="chip" data-filter="cleaning">Đang dọn</button><button class="chip" data-filter="maintenance">Bảo trì</button></div>
+      <div class="rooms-grid" id="roomsGrid"></div>
+    </section>
+
+    <section class="dashboard-section" data-view-panel="bookings">
+      <div class="section-page-head"><div><span class="section-label">LƯU TRÚ</span><h2>Quản lý đặt phòng</h2><p>Dữ liệu đặt phòng được lưu trong SQLite.</p></div><button class="primary-btn" id="bookingBtn2">＋ Đặt phòng</button></div>
+      <div class="panel"><div class="table-scroll"><table><thead><tr><th>MÃ</th><th>KHÁCH</th><th>PHÒNG</th><th>CHECK-IN</th><th>CHECK-OUT</th><th>TỔNG</th><th>TRẠNG THÁI</th></tr></thead><tbody id="allBookings"></tbody></table></div></div>
+    </section>
+
+    <section class="dashboard-section" data-view-panel="guests">
+      <div class="section-page-head"><div><span class="section-label">KHÁCH HÀNG</span><h2>Khách lưu trú</h2><p>Khu vực này sẵn sàng để mở rộng CustomerService.</p></div></div>
+      <div class="panel empty-feature"><span class="feature-icon">♙</span><h3>Quản lý khách hàng</h3><p>Kiến trúc đã tách Service/Database giống TTCS. Bạn có thể mở rộng CRUD khách hàng ở bước tiếp theo.</p></div>
+    </section>
+
+    <section class="dashboard-section" data-view-panel="housekeeping">
+      <div class="section-page-head"><div><span class="section-label">VẬN HÀNH</span><h2>Buồng phòng</h2></div></div>
+      <div class="stats-grid compact">
+        <article class="stat-card"><div class="stat-head"><span>Đang ở</span></div><div class="stat-value" id="houseOccupied">0</div></article>
+        <article class="stat-card"><div class="stat-head"><span>Đang dọn</span></div><div class="stat-value" id="houseCleaning">0</div></article>
+        <article class="stat-card"><div class="stat-head"><span>Bảo trì</span></div><div class="stat-value" id="houseMaintenance">0</div></article>
+      </div>
+    </section>
+
+    <section class="dashboard-section" data-view-panel="reports">
+      <div class="section-page-head"><div><span class="section-label">BÁO CÁO</span><h2>Tổng hợp vận hành</h2></div></div>
+      <div class="panel report-grid" id="reportGrid"></div>
+    </section>
+
+    <footer>© 2026 LumiHotel · Python Flask · SQLite · Kiến trúc theo TTCS</footer>
+  </main>
+</div>
+
+<div class="modal" id="bookingModal">
+  <div class="modal-box">
+    <button class="modal-close" data-close="bookingModal">×</button>
+    <span class="section-label">ĐẶT PHÒNG</span><h3>Tạo đặt phòng mới</h3>
+    <form id="bookingForm">
+      <label>Tên khách hàng<input id="bookingCustomer" required placeholder="Nguyễn Văn A"></label>
+      <label>Phòng<select id="bookingRoom" required></select></label>
+      <div class="two"><label>Check-in<input id="bookingCheckIn" type="date" required></label><label>Check-out<input id="bookingCheckOut" type="date" required></label></div>
+      <p id="bookingMessage" class="form-message"></p>
+      <div class="form-actions"><button type="button" class="ghost-btn" data-close="bookingModal">Hủy</button><button class="primary-btn">Xác nhận đặt phòng</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal" id="roomModal">
+  <div class="modal-box">
+    <button class="modal-close" data-close="roomModal">×</button>
+    <span class="section-label">THÔNG TIN PHÒNG</span><h3 id="roomModalTitle">Thêm phòng</h3>
+    <form id="roomForm">
+      <input id="roomId" type="hidden">
+      <label>Mã phòng<input id="roomCode" required placeholder="A101"></label>
+      <label>Tên phòng<input id="roomName" required placeholder="Phòng Deluxe"></label>
+      <label>Mô tả<input id="roomDescription" placeholder="Mô tả ngắn"></label>
+      <label>Hình ảnh URL<input id="roomImage" placeholder="https://..."></label>
+      <div class="two">
+        <label>Loại<select id="roomType"><option value="single">Single</option><option value="double">Double</option><option value="vip">VIP</option></select></label>
+        <label>Tầng<input id="roomFloor" type="number" min="1" value="1"></label>
+      </div>
+      <div class="two">
+        <label>Giá / đêm<input id="roomPrice" type="number" min="0" value="1000000"></label>
+        <label>Trạng thái<select id="roomStatus"><option value="available">Trống</option><option value="occupied">Đang ở</option><option value="cleaning">Đang dọn</option><option value="maintenance">Bảo trì</option></select></label>
+      </div>
+      <p id="roomMessage" class="form-message"></p>
+      <div class="form-actions"><button type="button" class="ghost-btn" data-close="roomModal">Hủy</button><button class="primary-btn">Lưu phòng</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast">✓ Thao tác thành công</div>
+<script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+</body>
+</html>
