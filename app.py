@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import os
+import uuid
 
 from flask import Flask, jsonify, render_template, request, session
+from werkzeug.utils import secure_filename
 
 from backend.database import Database
 from backend.services import AuthService, RoomService, BookingService, DashboardService
@@ -19,6 +21,8 @@ app.config["DATABASE_PATH"] = os.environ.get(
     "DATABASE_PATH",
     os.path.join(ROOT, "hotel_management.db"),
 )
+app.config["UPLOAD_FOLDER"] = os.path.join(ROOT, "static", "uploads")
+app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
 
 database = Database(app.config["DATABASE_PATH"])
 
@@ -79,6 +83,54 @@ def current_session():
     return jsonify({"user": session.get("user")})
 
 
+@app.get("/api/profile")
+def get_profile():
+    if not login_required():
+        return jsonify({"ok": False, "message": "Vui lòng đăng nhập."}), 401
+
+    profile = auth_service.get_profile(session["user"]["id"])
+    if profile is None:
+        return jsonify({"ok": False, "message": "Không tìm thấy hồ sơ."}), 404
+
+    return jsonify({"ok": True, "user": profile})
+
+
+@app.put("/api/profile")
+def update_profile():
+    if not login_required():
+        return jsonify({"ok": False, "message": "Vui lòng đăng nhập."}), 401
+
+    payload = request.get_json(silent=True) or {}
+    ok, message, profile = auth_service.update_profile(session["user"]["id"], payload)
+    if ok and profile is not None:
+        session["user"] = profile
+        session["user"]["full_name"] = profile["full_name"]
+        session["user"]["email"] = profile["email"]
+        session["user"]["role"] = profile["role"]
+
+    return jsonify({"ok": ok, "message": message, "user": profile}), 200 if ok else 400
+
+
+@app.post("/api/profile/avatar")
+def upload_profile_avatar():
+    if not login_required():
+        return jsonify({"ok": False, "message": "Vui lòng đăng nhập."}), 401
+
+    image = request.files.get("avatar")
+    allowed_extensions = {"jpg", "jpeg", "png", "gif", "webp"}
+    extension = os.path.splitext(image.filename or "")[1].lower().lstrip(".") if image else ""
+
+    if image is None or not image.filename:
+        return jsonify({"ok": False, "message": "Vui lòng chọn một ảnh."}), 400
+    if extension not in allowed_extensions or not (image.mimetype or "").startswith("image/"):
+        return jsonify({"ok": False, "message": "Chỉ chấp nhận ảnh JPG, PNG, GIF hoặc WEBP."}), 400
+
+    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+    filename = f"avatar_{session['user']['id']}_{uuid.uuid4().hex}.{secure_filename(extension)}"
+    image.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
+    return jsonify({"ok": True, "avatar_url": f"/static/uploads/{filename}"})
+
+
 @app.get("/api/dashboard")
 def dashboard():
     if not login_required():
@@ -101,6 +153,26 @@ def create_room():
     payload = request.get_json(silent=True) or {}
     ok, message, room = room_service.create_room(payload)
     return jsonify({"ok": ok, "message": message, "room": room}), 201 if ok else 400
+
+
+@app.post("/api/rooms/image")
+def upload_room_image():
+    if not login_required():
+        return jsonify({"ok": False, "message": "Vui lòng đăng nhập."}), 401
+
+    image = request.files.get("image")
+    allowed_extensions = {"jpg", "jpeg", "png", "gif", "webp"}
+    extension = os.path.splitext(image.filename or "")[1].lower().lstrip(".") if image else ""
+
+    if image is None or not image.filename:
+        return jsonify({"ok": False, "message": "Vui lòng chọn ảnh phòng."}), 400
+    if extension not in allowed_extensions or not (image.mimetype or "").startswith("image/"):
+        return jsonify({"ok": False, "message": "Chỉ chấp nhận ảnh JPG, PNG, GIF hoặc WEBP."}), 400
+
+    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+    filename = f"room_{uuid.uuid4().hex}.{secure_filename(extension)}"
+    image.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
+    return jsonify({"ok": True, "image_url": f"/static/uploads/{filename}"})
 
 
 @app.put("/api/rooms/<int:room_id>")
