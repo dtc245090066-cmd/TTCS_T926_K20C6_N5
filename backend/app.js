@@ -6,7 +6,9 @@ require('dotenv').config();
 const pool = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const roomRoutes = require('./routes/roomRoutes');
 const systemRoutes = require('./routes/systemRoutes');
+
 const userModel = require('./models/userModel');
 
 const app = express();
@@ -17,6 +19,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/test-db', systemRoutes);
+app.use('/api/rooms', roomRoutes);
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'frontend', 'index.html'));
