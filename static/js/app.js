@@ -57,10 +57,13 @@ async function api(url, options = {}) {
     ...options,
   });
   const data = await response.json().catch(() => ({}));
-  if (response.status === 401) {
+
+  const isAuthEndpoint = ["/api/login", "/api/register"].includes(url);
+  if (response.status === 401 && !isAuthEndpoint) {
     showLogin("Phiên đăng nhập đã hết. Vui lòng đăng nhập lại.");
     throw new Error(data.message || "Unauthorized");
   }
+
   return { response, data };
 }
 
