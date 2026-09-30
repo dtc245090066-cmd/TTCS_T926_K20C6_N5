@@ -25,7 +25,7 @@ class AuthService:
         with self.database.connect() as connection:
             user = connection.execute(
                 """
-                SELECT id, full_name, email, password_hash, role
+                SELECT id, full_name, email, password_hash, role, birth_date, phone, avatar_url
                 FROM users
                 WHERE LOWER(email) = ?
                 """,
@@ -40,7 +40,83 @@ class AuthService:
             "full_name": user["full_name"],
             "email": user["email"],
             "role": user["role"],
+            "birth_date": user["birth_date"],
+            "phone": user["phone"],
+            "avatar_url": user["avatar_url"],
         }
+
+    def get_profile(self, user_id: int) -> dict[str, Any] | None:
+        with self.database.connect() as connection:
+            user = connection.execute(
+                """
+                SELECT id, full_name, email, role, birth_date, phone, avatar_url
+                FROM users
+                WHERE id = ?
+                """,
+                (user_id,),
+            ).fetchone()
+
+        if user is None:
+            return None
+
+        return dict(user)
+
+    def update_profile(self, user_id: int, payload: dict[str, Any]) -> tuple[bool, str, dict[str, Any] | None]:
+        if not isinstance(payload, dict):
+            return False, "Dữ liệu hồ sơ không hợp lệ.", None
+
+        with self.database.connect() as connection:
+            current = connection.execute(
+                """
+                SELECT id, full_name, email, role, birth_date, phone, avatar_url
+                FROM users
+                WHERE id = ?
+                """,
+                (user_id,),
+            ).fetchone()
+
+            if current is None:
+                return False, "Người dùng không tồn tại.", None
+
+            full_name = str(payload.get("full_name", current["full_name"] or "")).strip()
+            birth_date = str(payload.get("birth_date", current["birth_date"] or "")).strip()
+            phone = str(payload.get("phone", current["phone"] or "")).strip()
+            avatar_url = str(payload.get("avatar_url", current["avatar_url"] or "")).strip()
+
+            if not full_name or len(full_name) > 120:
+                return False, "Vui lòng nhập họ tên hợp lệ.", None
+
+            if birth_date:
+                try:
+                    datetime.strptime(birth_date, "%Y-%m-%d")
+                except ValueError:
+                    return False, "Ngày sinh không hợp lệ.", None
+
+            if phone and len(phone) > 30:
+                return False, "Số điện thoại quá dài.", None
+
+            if avatar_url and len(avatar_url) > 500:
+                return False, "Link ảnh đại diện quá dài.", None
+
+            connection.execute(
+                """
+                UPDATE users
+                SET full_name = ?, birth_date = ?, phone = ?, avatar_url = ?
+                WHERE id = ?
+                """,
+                (full_name, birth_date or None, phone or None, avatar_url or None, user_id),
+            )
+
+            updated = connection.execute(
+                """
+                SELECT id, full_name, email, role, birth_date, phone, avatar_url
+                FROM users
+                WHERE id = ?
+                """,
+                (user_id,),
+            ).fetchone()
+
+        return True, "Cập nhật thông tin thành công.", dict(updated)
 
     def register(self, full_name: str, email: str, password: str) -> tuple[bool, str]:
         if not all(isinstance(value, str) for value in (full_name, email, password)):

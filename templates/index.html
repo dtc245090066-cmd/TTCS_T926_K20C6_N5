@@ -105,8 +105,9 @@
     <div class="sidebar-bottom">
       <div class="help-card"><div class="help-icon">?</div><div><strong>Cần hỗ trợ?</strong><small>Trung tâm trợ giúp Lumi</small></div></div>
       <div class="profile">
-        <div class="avatar">LH</div>
+        <div class="avatar" id="profileAvatarBadge">LH</div>
         <div class="profile-info"><strong id="userName">Admin</strong><small id="userRole">Quản lý</small></div>
+        <button class="icon-btn" id="profileBtn" title="Cập nhật hồ sơ">✎</button>
         <button class="icon-btn" id="logoutBtn" title="Đăng xuất">↪</button>
       </div>
     </div>
@@ -225,7 +226,13 @@
       <label>Mã phòng<input id="roomCode" required placeholder="A101"></label>
       <label>Tên phòng<input id="roomName" required placeholder="Phòng Deluxe"></label>
       <label>Mô tả<input id="roomDescription" placeholder="Mô tả ngắn"></label>
-      <label>Hình ảnh URL<input id="roomImage" placeholder="https://..."></label>
+      <label>Hình ảnh phòng
+        <span class="avatar-picker">
+          <input id="roomImageFile" type="file" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
+        </span>
+        <span id="roomImageFileName" class="file-name">Chưa chọn ảnh</span>
+      </label>
+      <input id="roomImage" type="hidden">
       <div class="two">
         <label>Loại<select id="roomType"><option value="single">Single</option><option value="double">Double</option><option value="vip">VIP</option></select></label>
         <label>Tầng<input id="roomFloor" type="number" min="1" value="1"></label>
@@ -236,6 +243,35 @@
       </div>
       <p id="roomMessage" class="form-message"></p>
       <div class="form-actions"><button type="button" class="ghost-btn" data-close="roomModal">Hủy</button><button class="primary-btn">Lưu phòng</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal" id="profileModal">
+  <div class="modal-box profile-modal-box">
+    <button class="modal-close" data-close="profileModal">×</button>
+    <span class="section-label">HỒ SƠ CÁ NHÂN</span>
+    <h3>Cập nhật thông tin</h3>
+    <form id="profileForm">
+      <label>Họ và tên<input id="profileFullName" required></label>
+      <div class="two">
+        <label>Ngày sinh<input id="profileBirthDate" type="date"></label>
+        <label>Email<input id="profileEmail" type="email" readonly></label>
+      </div>
+      <label>Số điện thoại<input id="profilePhone" type="tel" placeholder="0909..."></label>
+      <label>Ảnh đại diện
+        <span class="avatar-picker">
+          <span class="avatar-picker-button">Chọn ảnh từ thư viện</span>
+          <input id="profileAvatarFile" type="file" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
+        </span>
+        <span id="profileAvatarFileName" class="file-name">Chưa chọn ảnh</span>
+      </label>
+      <input id="profileAvatar" type="hidden">
+      <div class="profile-preview-box">
+        <img id="profileAvatarPreview" src="" alt="Ảnh đại diện" onerror="this.style.display='none'">
+      </div>
+      <p id="profileMessage" class="form-message"></p>
+      <div class="form-actions"><button type="button" class="ghost-btn" data-close="profileModal">Hủy</button><button class="primary-btn">Lưu thay đổi</button></div>
     </form>
   </div>
 </div>

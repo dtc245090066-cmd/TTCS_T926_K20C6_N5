@@ -10,6 +10,8 @@ let rooms = [];
 let bookings = [];
 let currentFilter = "all";
 let chart;
+let selectedAvatarFile = null;
+let selectedRoomImageFile = null;
 
 const statusMap = {
   available: "Trống",
@@ -47,8 +49,11 @@ function message(el, text, success = false) {
 }
 
 async function api(url, options = {}) {
+  const headers = options.body instanceof FormData
+    ? { ...(options.headers || {}) }
+    : { "Content-Type": "application/json", ...(options.headers || {}) };
   const response = await fetch(url, {
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    headers,
     ...options,
   });
   const data = await response.json().catch(() => ({}));
@@ -65,12 +70,51 @@ function showLogin(error = "") {
   message($("#loginMessage"), error);
 }
 
+function setUserDisplay(user) {
+  if (!user) return;
+  const fullName = user.full_name || "Admin";
+  $("#userName").textContent = fullName;
+  $("#userRole").textContent = user.role === "manager" ? "Quản lý" : "Nhân viên";
+
+  const initials = fullName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0])
+    .join("")
+    .toUpperCase() || "LH";
+
+  $("#profileAvatarBadge").textContent = initials;
+}
+
 function showDashboard(user) {
   authView.classList.add("hidden");
   dashboardView.classList.remove("hidden");
-  $("#userName").textContent = user.full_name;
-  $("#userRole").textContent = user.role === "manager" ? "Quản lý" : "Nhân viên";
+  setUserDisplay(user);
+  loadProfile();
   loadAll();
+}
+
+async function loadProfile() {
+  try {
+    const { response, data } = await api("/api/profile");
+    if (!response.ok) return;
+
+    const user = data.user || {};
+    setUserDisplay(user);
+    $("#profileFullName").value = user.full_name || "";
+    $("#profileBirthDate").value = user.birth_date || "";
+    $("#profileEmail").value = user.email || "";
+    $("#profilePhone").value = user.phone || "";
+    $("#profileAvatar").value = user.avatar_url || "";
+    selectedAvatarFile = null;
+    $("#profileAvatarFile").value = "";
+    $("#profileAvatarFileName").textContent = "Chưa chọn ảnh";
+    $("#profileAvatarPreview").src = user.avatar_url || "";
+    $("#profileAvatarPreview").style.display = user.avatar_url ? "block" : "none";
+  } catch (error) {
+    console.error(error);
+  }
 }
 
 async function checkSession() {
@@ -147,10 +191,73 @@ $("#showLogin").addEventListener("click", () => {
   loginPanel.classList.remove("hidden");
 });
 
+$("#profileBtn").addEventListener("click", async () => {
+  await loadProfile();
+  openModal("profileModal");
+});
+
 $("#logoutBtn").addEventListener("click", async () => {
   await api("/api/logout", { method: "POST" });
   showLogin();
   toast("Đã đăng xuất");
+});
+
+$("#profileAvatarFile").addEventListener("change", () => {
+  selectedAvatarFile = $("#profileAvatarFile").files[0] || null;
+  $("#profileAvatarFileName").textContent = selectedAvatarFile?.name || "Chưa chọn ảnh";
+  const url = selectedAvatarFile ? URL.createObjectURL(selectedAvatarFile) : $("#profileAvatar").value.trim();
+  const preview = $("#profileAvatarPreview");
+  preview.src = url;
+  preview.style.display = url ? "block" : "none";
+});
+
+$("#profileForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  if (selectedAvatarFile) {
+    const formData = new FormData();
+    formData.append("avatar", selectedAvatarFile);
+    const upload = await api("/api/profile/avatar", { method: "POST", body: formData });
+    if (!upload.response.ok) {
+      message($("#profileMessage"), upload.data.message || "Không thể tải ảnh lên.");
+      return;
+    }
+    $("#profileAvatar").value = upload.data.avatar_url;
+  }
+
+  const payload = {
+    full_name: $("#profileFullName").value,
+    birth_date: $("#profileBirthDate").value,
+    phone: $("#profilePhone").value,
+    avatar_url: $("#profileAvatar").value,
+  };
+
+  const { response, data } = await api("/api/profile", {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+
+  message($("#profileMessage"), data.message || "", response.ok);
+
+  if (response.ok) {
+    selectedAvatarFile = null;
+    $("#profileAvatarFile").value = "";
+    $("#profileAvatarFileName").textContent = "Chưa chọn ảnh";
+    const user = data.user || {};
+    setUserDisplay(user);
+    $("#userName").textContent = user.full_name || $("#profileFullName").value;
+    $("#profileAvatarBadge").textContent = (user.full_name || $("#profileFullName").value)
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(part => part[0])
+      .join("")
+      .toUpperCase() || "LH";
+
+    closeModal("profileModal");
+    toast(data.message || "Cập nhật thành công");
+    await loadAll();
+  }
 });
 
 function setView(view) {
@@ -355,11 +462,18 @@ $$(".chip").forEach(button => {
 });
 
 function openModal(id) {
-  $(id).classList.add("show");
+  const modal = document.getElementById(id) || $(id);
+  if (!modal) {
+    console.warn(`Modal not found: ${id}`);
+    return;
+  }
+  modal.classList.add("show");
 }
 
 function closeModal(id) {
-  $(id).classList.remove("show");
+  const modal = document.getElementById(id) || $(id);
+  if (!modal) return;
+  modal.classList.remove("show");
 }
 
 $$("[data-close]").forEach(button => {
@@ -407,6 +521,8 @@ $("#openRoomForm").addEventListener("click", () => openRoomModal());
 function openRoomModal(room = null) {
   $("#roomForm").reset();
   $("#roomMessage").textContent = "";
+  selectedRoomImageFile = null;
+  $("#roomImageFileName").textContent = "Chưa chọn ảnh";
   $("#roomId").value = room?.id || "";
   $("#roomModalTitle").textContent = room ? "Cập nhật phòng" : "Thêm phòng";
 
@@ -429,10 +545,26 @@ function openRoomModal(room = null) {
   openModal("roomModal");
 }
 
+$("#roomImageFile").addEventListener("change", () => {
+  selectedRoomImageFile = $("#roomImageFile").files[0] || null;
+  $("#roomImageFileName").textContent = selectedRoomImageFile?.name || "Chưa chọn ảnh";
+});
+
 $("#roomForm").addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const id = $("#roomId").value;
+  if (selectedRoomImageFile) {
+    const formData = new FormData();
+    formData.append("image", selectedRoomImageFile);
+    const upload = await api("/api/rooms/image", { method: "POST", body: formData });
+    if (!upload.response.ok) {
+      message($("#roomMessage"), upload.data.message || "Không thể tải ảnh phòng lên.");
+      return;
+    }
+    $("#roomImage").value = upload.data.image_url;
+  }
+
   const payload = {
     code: $("#roomCode").value,
     name: $("#roomName").value,
@@ -452,6 +584,9 @@ $("#roomForm").addEventListener("submit", async (event) => {
   message($("#roomMessage"), data.message || "", response.ok);
 
   if (response.ok) {
+    selectedRoomImageFile = null;
+    $("#roomImageFile").value = "";
+    $("#roomImageFileName").textContent = "Chưa chọn ảnh";
     closeModal("roomModal");
     toast(data.message);
     await loadAll();
