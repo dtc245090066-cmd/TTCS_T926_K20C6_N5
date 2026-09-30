@@ -90,6 +90,8 @@ class Database:
                     room_id INTEGER NOT NULL,
                     check_in TEXT NOT NULL,
                     check_out TEXT NOT NULL,
+                    check_in_time TEXT,
+                    check_out_time TEXT,
                     total REAL NOT NULL DEFAULT 0,
                     status TEXT NOT NULL DEFAULT 'booked'
                         CHECK(status IN ('booked', 'checked_in', 'checked_out', 'cancelled')),
@@ -97,6 +99,15 @@ class Database:
                     FOREIGN KEY(room_id) REFERENCES rooms(id)
                 )
             """)
+
+            booking_columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(bookings)").fetchall()
+            }
+            for column_name in ("check_in_time", "check_out_time"):
+                if column_name not in booking_columns:
+                    connection.execute(
+                        f"ALTER TABLE bookings ADD COLUMN {column_name} TEXT"
+                    )
 
             existing_user = connection.execute(
                 "SELECT id FROM users WHERE email = ?",

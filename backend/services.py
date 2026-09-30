@@ -302,7 +302,8 @@ class BookingService:
                 """
                 SELECT
                     b.id, b.code, b.customer_name, b.check_in,
-                    b.check_out, b.total, b.status,
+                    b.check_out, b.check_in_time, b.check_out_time,
+                    b.total, b.status,
                     r.code AS room_code, r.name AS room_name
                 FROM bookings b
                 JOIN rooms r ON r.id = b.room_id
@@ -317,6 +318,8 @@ class BookingService:
         room_id = payload.get("room_id")
         check_in = str(payload.get("check_in", "")).strip()
         check_out = str(payload.get("check_out", "")).strip()
+        check_in_time = str(payload.get("check_in_time", "")).strip() or None
+        check_out_time = str(payload.get("check_out_time", "")).strip() or None
 
         if not customer:
             return False, "Vui lòng nhập tên khách hàng.", None
@@ -330,6 +333,16 @@ class BookingService:
 
         if end <= start:
             return False, "Ngày check-out phải sau ngày check-in.", None
+
+        if bool(check_in_time) != bool(check_out_time):
+            return False, "Vui lòng nhập đầy đủ giờ check-in và check-out.", None
+
+        time_pattern = r"(?:[01]\d|2[0-3]):[0-5]\d"
+        if check_in_time and (
+            not re.fullmatch(time_pattern, check_in_time)
+            or not re.fullmatch(time_pattern, check_out_time)
+        ):
+            return False, "Giờ check-in hoặc check-out không hợp lệ.", None
 
         with self.database.connect() as connection:
             room = connection.execute(
@@ -353,11 +366,15 @@ class BookingService:
                     """
                     INSERT INTO bookings(
                         code, customer_name, room_id,
-                        check_in, check_out, total, status
+                        check_in, check_out, check_in_time, check_out_time,
+                        total, status
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, 'booked')
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'booked')
                     """,
-                    (code, customer, room_id, check_in, check_out, total),
+                    (
+                        code, customer, room_id, check_in, check_out,
+                        check_in_time, check_out_time, total,
+                    ),
                 )
                 connection.execute(
                     "UPDATE rooms SET status = 'occupied', updated_at = CURRENT_TIMESTAMP WHERE id = ?",

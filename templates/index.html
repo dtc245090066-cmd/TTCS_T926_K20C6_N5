@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -94,8 +95,19 @@
     <nav class="nav">
       <p class="nav-label">TỔNG QUAN</p>
       <button class="nav-item active" data-view="overview"><span>⌂</span>Tổng quan</button>
-      <button class="nav-item" data-view="bookings"><span>▤</span>Đặt phòng <b class="badge" id="bookingBadge">0</b></button>
-      <button class="nav-item" data-view="rooms"><span>▦</span>Phòng</button>
+      <div class="nav-booking-group">
+        <button class="nav-item" data-view="bookings" aria-expanded="false"><span>▤</span>Đặt phòng <b class="badge" id="bookingBadge">0</b><span class="booking-caret" aria-hidden="true">⌄</span></button>
+        <div class="nav-submenu" aria-label="Chức năng đặt phòng">
+          <button class="nav-subitem" data-booking-subview="list"><span>▤</span>Danh sách khách đặt phòng</button>
+          <button class="nav-subitem" data-booking-subview="calendar"><span>▦</span>Lịch đặt phòng</button>
+        </div>
+      </div>
+      <div class="nav-room-group">
+        <button class="nav-item" data-view="rooms" aria-expanded="false"><span>▦</span>Phòng<span class="booking-caret" aria-hidden="true">⌄</span></button>
+        <div class="nav-submenu" aria-label="Chức năng phòng">
+          <button class="nav-subitem" data-room-subview="room-list"><span>▤</span>Danh sách phòng</button>
+        </div>
+      </div>
       <button class="nav-item" data-view="guests"><span>♙</span>Khách hàng</button>
       <p class="nav-label">VẬN HÀNH</p>
       <button class="nav-item" data-view="housekeeping"><span>✦</span>Buồng phòng</button>
@@ -118,16 +130,28 @@
       <div>
         <button class="mobile-menu" id="mobileMenu">☰</button>
         <span class="eyebrow">LUMIHOTEL / HỆ THỐNG QUẢN LÝ</span>
-        <h1>Quản lý <span>khách sạn</span></h1>
       </div>
       <div class="top-actions">
-        <button class="search"><span>⌕</span><input id="searchInput" placeholder="Tìm phòng, khách..." /></button>
-        <button class="icon-btn notification">♢<i></i></button>
+        <label class="search"><span>⌕</span><input id="searchInput" placeholder="Tìm đặt phòng, khách hàng..." /></label>
+        <button class="icon-btn notification" title="Thông báo" aria-label="Thông báo">♢<i></i></button>
         <button class="primary-btn" id="bookingBtn">＋ Đặt phòng mới</button>
+        <button class="top-avatar" id="topProfileBtn" title="Tài khoản" aria-label="Mở hồ sơ người dùng"><span id="topUserInitials">LH</span></button>
       </div>
     </header>
 
     <section class="dashboard-section active" data-view-panel="overview">
+      <section class="stats-grid">
+        <article class="stat-card featured"><div class="stat-head"><span>Doanh thu</span><span class="stat-icon">₫</span></div><div class="stat-value" id="statRevenue">0₫</div><div class="stat-foot"><span class="up">●</span><span>tổng đơn đặt phòng</span></div></article>
+        <article class="stat-card"><div class="stat-head"><span>Đặt phòng</span><span class="stat-icon">▤</span></div><div class="stat-value" id="statBookings">0</div><div class="stat-foot"><span class="up">●</span><span>đơn trong hệ thống</span></div></article>
+        <article class="stat-card"><div class="stat-head"><span>Phòng trống</span><span class="stat-icon">▦</span></div><div class="stat-value" id="statAvailable">0</div><div class="stat-foot"><span>có thể đặt</span></div></article>
+        <article class="stat-card"><div class="stat-head"><span>Công suất phòng</span><span class="stat-icon">◉</span></div><div class="stat-value" id="statOccupancy">0%</div><div class="stat-foot"><span class="warning" id="statOccupied">0</span><span>phòng đang ở</span></div></article>
+      </section>
+
+      <section class="panel room-status-panel">
+        <div class="panel-head"><div><span class="section-label">VẬN HÀNH HÔM NAY</span><h3>Tình trạng phòng hôm nay</h3></div><button class="text-btn" data-go="rooms">Quản lý phòng →</button></div>
+        <div class="room-status-summary" id="roomStatusSummary"></div>
+      </section>
+
       <section class="hero">
         <div class="hero-image"></div>
         <div class="hero-copy">
@@ -140,13 +164,6 @@
           </div>
         </div>
         <div class="hero-chip">● Khách sạn đang hoạt động</div>
-      </section>
-
-      <section class="stats-grid">
-        <article class="stat-card featured"><div class="stat-head"><span>Doanh thu</span><span class="stat-icon">₫</span></div><div class="stat-value" id="statRevenue">0₫</div><div class="stat-foot"><span class="up">●</span><span>tổng đơn đặt phòng</span></div></article>
-        <article class="stat-card"><div class="stat-head"><span>Đặt phòng</span><span class="stat-icon">▤</span></div><div class="stat-value" id="statBookings">0</div><div class="stat-foot"><span class="up">●</span><span>đơn trong hệ thống</span></div></article>
-        <article class="stat-card"><div class="stat-head"><span>Phòng trống</span><span class="stat-icon">▦</span></div><div class="stat-value" id="statAvailable">0</div><div class="stat-foot"><span>có thể đặt</span></div></article>
-        <article class="stat-card"><div class="stat-head"><span>Công suất phòng</span><span class="stat-icon">◉</span></div><div class="stat-value" id="statOccupancy">0%</div><div class="stat-foot"><span class="warning" id="statOccupied">0</span><span>phòng đang ở</span></div></article>
       </section>
 
       <section class="content-grid">
@@ -175,9 +192,53 @@
       <div class="rooms-grid" id="roomsGrid"></div>
     </section>
 
+    <section class="dashboard-section" data-view-panel="room-list">
+      <div class="section-page-head"><div><span class="section-label">QUẢN LÝ PHÒNG</span><h2>Danh sách phòng</h2><p>Quản lý thông tin các phòng trong khách sạn.</p></div></div>
+      <div class="room-list-toolbar">
+        <div class="room-list-tools">
+          <label class="room-list-search"><span>⌕</span><input id="roomListSearch" type="search" placeholder="Tìm phòng..." aria-label="Tìm theo mã, tên hoặc loại phòng"></label>
+          <button class="primary-btn" id="openRoomListForm">＋ Thêm phòng</button>
+        </div>
+        <div class="room-list-filters" role="group" aria-label="Lọc trạng thái phòng">
+          <button class="room-list-filter active" data-room-list-filter="all">Tất cả</button>
+          <button class="room-list-filter" data-room-list-filter="available">Trống</button>
+          <button class="room-list-filter" data-room-list-filter="occupied">Đang ở</button>
+          <button class="room-list-filter" data-room-list-filter="cleaning">Đang dọn</button>
+          <button class="room-list-filter" data-room-list-filter="maintenance">Bảo trì</button>
+        </div>
+      </div>
+      <div class="panel room-list-panel"><div class="table-scroll"><table class="room-list-table"><thead><tr><th>MÃ PHÒNG</th><th>TÊN PHÒNG</th><th>LOẠI / TẦNG</th><th>GIÁ / ĐÊM</th><th>GIỜ VÀO</th><th>GIỜ RA</th><th>TRẠNG THÁI</th><th>THAO TÁC</th></tr></thead><tbody id="roomListBody"></tbody></table></div></div>
+    </section>
+
     <section class="dashboard-section" data-view-panel="bookings">
-      <div class="section-page-head"><div><span class="section-label">LƯU TRÚ</span><h2>Quản lý đặt phòng</h2><p>Dữ liệu đặt phòng được lưu trong SQLite.</p></div><button class="primary-btn" id="bookingBtn2">＋ Đặt phòng</button></div>
-      <div class="panel"><div class="table-scroll"><table><thead><tr><th>MÃ</th><th>KHÁCH</th><th>PHÒNG</th><th>CHECK-IN</th><th>CHECK-OUT</th><th>TỔNG</th><th>TRẠNG THÁI</th></tr></thead><tbody id="allBookings"></tbody></table></div></div>
+      <div class="booking-subview active" data-booking-panel="list">
+        <div class="section-page-head"><div><span class="section-label">LƯU TRÚ</span><h2>Danh sách khách đặt phòng</h2><p>Dữ liệu đặt phòng được lưu trong SQLite.</p></div><button class="primary-btn" id="bookingBtn2">＋ Đặt phòng</button></div>
+        <div class="panel"><div class="table-scroll"><table><thead><tr><th>MÃ</th><th>KHÁCH</th><th>PHÒNG</th><th>CHECK-IN</th><th>CHECK-OUT</th><th>TỔNG</th><th>TRẠNG THÁI</th></tr></thead><tbody id="allBookings"></tbody></table></div></div>
+      </div>
+      <div class="booking-subview" data-booking-panel="calendar">
+        <div class="section-page-head"><div><span class="section-label">LƯU TRÚ</span><h2>Lịch đặt phòng</h2><p>Theo dõi lịch lưu trú theo phòng và ngày.</p></div><button class="primary-btn" id="calendarBookingBtn">＋ Đặt phòng mới</button></div>
+        <section class="frontdesk-arrivals" aria-label="Lượt khách hôm nay">
+          <div><span>Khách check-in hôm nay</span><strong id="arrivalsToday">0</strong></div>
+          <div><span>Khách check-out hôm nay</span><strong id="departuresToday">0</strong></div>
+        </section>
+        <section class="panel reservations-panel">
+          <div class="panel-head calendar-heading">
+            <div><span class="section-label">LỊCH LƯU TRÚ</span><h3>Lịch đặt phòng</h3><p id="calendarRange" class="calendar-range"></p></div>
+            <div class="calendar-controls" aria-label="Điều hướng lịch">
+              <button class="calendar-nav" type="button" data-calendar-shift="-1" aria-label="Tuần trước" title="Tuần trước">‹</button>
+              <button class="calendar-today" type="button" data-calendar-today>Tuần này</button>
+              <button class="calendar-nav" type="button" data-calendar-shift="1" aria-label="Tuần sau" title="Tuần sau">›</button>
+            </div>
+          </div>
+          <div id="reservationsCalendar" class="calendar-scroll" aria-live="polite"></div>
+          <div class="calendar-legend" aria-label="Trạng thái đặt phòng">
+            <span><i class="legend-dot booked"></i>Đã đặt</span>
+            <span><i class="legend-dot checked-in"></i>Đang ở</span>
+            <span><i class="legend-dot checked-out"></i>Đã trả</span>
+            <span><i class="legend-dot cancelled"></i>Đã hủy</span>
+          </div>
+        </section>
+      </div>
     </section>
 
     <section class="dashboard-section" data-view-panel="guests">
@@ -211,6 +272,7 @@
       <label>Tên khách hàng<input id="bookingCustomer" required placeholder="Nguyễn Văn A"></label>
       <label>Phòng<select id="bookingRoom" required></select></label>
       <div class="two"><label>Check-in<input id="bookingCheckIn" type="date" required></label><label>Check-out<input id="bookingCheckOut" type="date" required></label></div>
+      <div class="two"><label>Giờ vào<input id="bookingCheckInTime" type="time" required></label><label>Giờ ra<input id="bookingCheckOutTime" type="time" required></label></div>
       <p id="bookingMessage" class="form-message"></p>
       <div class="form-actions"><button type="button" class="ghost-btn" data-close="bookingModal">Hủy</button><button class="primary-btn">Xác nhận đặt phòng</button></div>
     </form>
@@ -251,6 +313,23 @@
       <p id="roomMessage" class="form-message"></p>
       <div class="form-actions"><button type="button" class="ghost-btn" data-close="roomModal">Hủy</button><button class="primary-btn">Lưu phòng</button></div>
     </form>
+  </div>
+</div>
+
+<div class="modal" id="roomDetailsModal">
+  <div class="modal-box room-details-modal">
+    <button class="modal-close" data-close="roomDetailsModal">×</button>
+    <span class="section-label">THÔNG TIN PHÒNG</span>
+    <h3 id="roomDetailsName">Chi tiết phòng</h3>
+    <img id="roomDetailsImage" class="room-details-image" alt="">
+    <div class="room-details-grid">
+      <div><span>Mã phòng</span><strong id="roomDetailsCode"></strong></div>
+      <div><span>Loại phòng</span><strong id="roomDetailsType"></strong></div>
+      <div><span>Tầng</span><strong id="roomDetailsFloor"></strong></div>
+      <div><span>Giá / đêm</span><strong id="roomDetailsPrice"></strong></div>
+      <div><span>Trạng thái</span><strong id="roomDetailsStatus"></strong></div>
+    </div>
+    <p id="roomDetailsDescription" class="room-details-description"></p>
   </div>
 </div>
 
