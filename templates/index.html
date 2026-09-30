@@ -234,7 +234,14 @@
       </label>
       <input id="roomImage" type="hidden">
       <div class="two">
-        <label>Loại<select id="roomType"><option value="single">Single</option><option value="double">Double</option><option value="vip">VIP</option></select></label>
+        <label>Loại phòng
+          <input id="roomType" type="hidden" value="single">
+          <div class="room-type-group">
+            <label class="room-type-option-label"><input type="checkbox" class="room-type-option" value="single" checked> Đơn</label>
+            <label class="room-type-option-label"><input type="checkbox" class="room-type-option" value="double"> Đôi</label>
+            <label class="room-type-option-label"><input type="checkbox" class="room-type-option" value="vip"> VIP</label>
+          </div>
+        </label>
         <label>Tầng<input id="roomFloor" type="number" min="1" value="1"></label>
       </div>
       <div class="two">

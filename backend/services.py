@@ -165,7 +165,7 @@ class RoomService:
         description = str(payload.get("description", "")).strip()
         image_url = str(payload.get("image_url", "")).strip()
         room_type = str(payload.get("room_type", "")).strip().lower()
-        status = str(payload.get("status", "")).strip().lower()
+        status = str(payload.get("status", "available")).strip().lower() or "available"
 
         try:
             price = float(payload.get("price", 0))

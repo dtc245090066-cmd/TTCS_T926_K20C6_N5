@@ -521,6 +521,35 @@ $("#bookingForm").addEventListener("submit", async (event) => {
 
 $("#openRoomForm").addEventListener("click", () => openRoomModal());
 
+function syncRoomTypeSelection(value) {
+  const nextValue = value || "single";
+  $("#roomType").value = nextValue;
+  $$(".room-type-option").forEach((checkbox) => {
+    checkbox.checked = checkbox.value === nextValue;
+  });
+}
+
+function getSelectedRoomType() {
+  const selected = $$(".room-type-option").filter((checkbox) => checkbox.checked);
+  const value = selected[0]?.value || $("#roomType").value || "single";
+  $("#roomType").value = value;
+  return value;
+}
+
+$$(".room-type-option").forEach((checkbox) => {
+  checkbox.addEventListener("change", () => {
+    if (!checkbox.checked) {
+      $("#roomType").value = "";
+      return;
+    }
+
+    $$(".room-type-option").forEach((item) => {
+      if (item !== checkbox) item.checked = false;
+    });
+    syncRoomTypeSelection(checkbox.value);
+  });
+});
+
 function openRoomModal(room = null) {
   $("#roomForm").reset();
   $("#roomMessage").textContent = "";
@@ -534,14 +563,14 @@ function openRoomModal(room = null) {
     $("#roomName").value = room.name;
     $("#roomDescription").value = room.description || "";
     $("#roomImage").value = room.image_url || "";
-    $("#roomType").value = room.room_type;
+    syncRoomTypeSelection(room.room_type || "single");
     $("#roomFloor").value = room.floor;
     $("#roomPrice").value = room.price;
     $("#roomStatus").value = room.status;
   } else {
     $("#roomFloor").value = 1;
     $("#roomPrice").value = 1000000;
-    $("#roomType").value = "double";
+    syncRoomTypeSelection("single");
     $("#roomStatus").value = "available";
   }
 
@@ -555,6 +584,12 @@ $("#roomImageFile").addEventListener("change", () => {
 
 $("#roomForm").addEventListener("submit", async (event) => {
   event.preventDefault();
+
+  const roomTypeValue = getSelectedRoomType();
+  if (!roomTypeValue) {
+    message($("#roomMessage"), "Vui lòng chọn loại phòng.");
+    return;
+  }
 
   const id = $("#roomId").value;
   if (selectedRoomImageFile) {
@@ -573,10 +608,10 @@ $("#roomForm").addEventListener("submit", async (event) => {
     name: $("#roomName").value,
     description: $("#roomDescription").value,
     image_url: $("#roomImage").value,
-    room_type: $("#roomType").value,
+    room_type: roomTypeValue,
     floor: Number($("#roomFloor").value),
     price: Number($("#roomPrice").value),
-    status: $("#roomStatus").value,
+    status: $("#roomStatus").value || "available",
   };
 
   const { response, data } = await api(id ? `/api/rooms/${id}` : "/api/rooms", {
