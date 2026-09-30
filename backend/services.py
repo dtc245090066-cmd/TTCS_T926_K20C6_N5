@@ -18,14 +18,18 @@ class AuthService:
         if not isinstance(email, str) or not isinstance(password, str):
             return None
 
+        normalized_email = email.strip().lower()
+        if not normalized_email or not password.strip():
+            return None
+
         with self.database.connect() as connection:
             user = connection.execute(
                 """
                 SELECT id, full_name, email, password_hash, role
                 FROM users
-                WHERE email = ?
+                WHERE LOWER(email) = ?
                 """,
-                (email.strip(),),
+                (normalized_email,),
             ).fetchone()
 
         if user is None or not check_password_hash(user["password_hash"], password):

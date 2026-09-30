@@ -13,28 +13,58 @@
 <body>
 
 <section id="authView" class="auth-shell">
-  <div class="auth-image"></div>
   <div class="auth-card">
-    <div class="brand auth-brand">
-      <div class="brand-mark">L</div>
-      <div><div class="brand-name">Lumi<span>Hotel</span></div><div class="brand-sub">Hotel management</div></div>
-    </div>
-    <div id="loginPanel">
-      <span class="eyebrow">LOTUS STAY / LUMIHOTEL</span>
-      <h1>Chào mừng<br><em>quay trở lại.</em></h1>
-      <p class="auth-muted">Đăng nhập để quản lý phòng, đặt phòng và vận hành khách sạn.</p>
+    <div id="loginPanel" class="login-panel">
+      <div class="card-header">
+        <div class="brand auth-brand">
+          <div class="brand-mark">L</div>
+          <div>
+            <div class="brand-name">Lumi<span>Hotel</span></div>
+            <div class="brand-sub">HOTEL &amp; RESORTS</div>
+          </div>
+        </div>
+        <div class="header-links" aria-label="Thao tác chính">
+          <span>Người dùng</span>
+          <span>Trải nghiệm</span>
+          <span>Thư giãn</span>
+        </div>
+      </div>
+
+      <div class="login-hero">
+        <h1>Chào mừng<br><em>quay trở lại.</em></h1>
+        <div class="hero-script">Better Stay<br><span>Bigger Smiles</span></div>
+      </div>
+
+      <p class="auth-muted">Đăng nhập để tiếp tục sử dụng hệ thống quản lý khách sạn LumiHotel.</p>
+
       <form id="loginForm" class="auth-form">
-        <label>Email<input id="loginEmail" type="email" value="admin@lumihotel.local" required></label>
-        <label>Mật khẩu<input id="loginPassword" type="password" value="Hotel2026@" required></label>
+        <label class="field-row">
+          <span class="field-icon">✉</span>
+          <input id="loginEmail" type="email" placeholder="Nhập email của bạn" required>
+        </label>
+
+        <label class="field-row">
+          <span class="field-icon">⌂</span>
+          <input id="loginPassword" type="password" placeholder="Nhập mật khẩu" required>
+        </label>
+
+        <div class="login-meta">
+          <label class="remember-row"><input type="checkbox" checked> Ghi nhớ đăng nhập</label>
+          <button type="button" class="text-link">Quên mật khẩu?</button>
+        </div>
+
         <button class="primary-btn wide" type="submit">Đăng nhập hệ thống →</button>
       </form>
+
       <p id="loginMessage" class="form-message"></p>
-      <button class="link-button" id="showRegister">Tạo tài khoản nhân viên</button>
+
+      <div class="divider"><span>HOẶC</span></div>
+      <button class="link-button" id="showRegister">Tạo tài khoản →</button>
     </div>
 
-    <div id="registerPanel" class="hidden">
+    <div id="registerPanel" class="register-panel hidden">
       <span class="eyebrow">TẠO TÀI KHOẢN</span>
-      <h1>Thêm nhân viên<br><em>mới.</em></h1>
+      <h1>Tạo tài khoản</h1>
       <form id="registerForm" class="auth-form">
         <label>Họ và tên<input id="registerName" required></label>
         <label>Email<input id="registerEmail" type="email" required></label>
@@ -44,12 +74,8 @@
       <p id="registerMessage" class="form-message"></p>
       <button class="link-button" id="showLogin">← Quay lại đăng nhập</button>
     </div>
-
-    <div class="demo-note">
-      <strong>Tài khoản demo</strong>
-      <span>admin@lumihotel.local · Hotel2026@</span>
-    </div>
   </div>
+  <div class="auth-image" aria-hidden="true"></div>
 </section>
 
 <div id="dashboardView" class="app-shell hidden">

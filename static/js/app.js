@@ -76,8 +76,11 @@ function showDashboard(user) {
 async function checkSession() {
   try {
     const { data } = await api("/api/session");
-    if (data.user) showDashboard(data.user);
-    else showLogin();
+    if (data.user) {
+      showDashboard(data.user);
+      return;
+    }
+    showLogin();
   } catch {
     showLogin();
   }
@@ -85,11 +88,20 @@ async function checkSession() {
 
 $("#loginForm").addEventListener("submit", async (event) => {
   event.preventDefault();
+
+  const email = $("#loginEmail").value.trim();
+  const password = $("#loginPassword").value;
+
+  if (!email || !password) {
+    message($("#loginMessage"), "Vui lòng nhập email và mật khẩu.");
+    return;
+  }
+
   const { response, data } = await api("/api/login", {
     method: "POST",
     body: JSON.stringify({
-      email: $("#loginEmail").value,
-      password: $("#loginPassword").value,
+      email,
+      password,
     }),
   });
 

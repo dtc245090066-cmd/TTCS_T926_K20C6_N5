@@ -40,7 +40,16 @@ def index():
 @app.post("/api/login")
 def login():
     payload = request.get_json(silent=True) or {}
-    user = auth_service.login(payload.get("email", ""), payload.get("password", ""))
+    email = str(payload.get("email", "") or "").strip()
+    password = str(payload.get("password", "") or "")
+
+    if not email or not password:
+        return jsonify({
+            "ok": False,
+            "message": "Vui lòng nhập email và mật khẩu.",
+        }), 400
+
+    user = auth_service.login(email, password)
 
     if not user:
         return jsonify({
