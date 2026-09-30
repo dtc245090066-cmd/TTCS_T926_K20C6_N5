@@ -31,6 +31,11 @@
 .register-panel .auth-form input:focus{border-color:#9a6c43;box-shadow:0 0 0 3px rgba(154,108,67,.15)}
 .register-panel .auth-form .primary-btn{margin-top:4px}
 .register-panel>.link-button{margin-top:8px}
+.room-type-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:12px}
+.room-type-card{background:#fffdf9;border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 8px 24px rgba(63,42,25,.03)}
+.room-type-header{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+.room-type-body strong{display:block;font-size:18px;font-family:"Playfair Display";margin-bottom:6px}
+.room-type-body p{margin:0;color:#7d7067;font-size:12px;line-height:1.6}
 .room-type-group{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;padding:8px 10px;border:1px solid rgba(131,110,93,.35);border-radius:10px;background:rgba(255,255,255,.72)}
 .room-type-option-label{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:#50473f}
 .room-type-option-label input{accent-color:#9a6c43}

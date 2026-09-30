@@ -8,6 +8,7 @@ const registerPanel = $("#registerPanel");
 
 let rooms = [];
 let bookings = [];
+let roomTypes = [];
 let currentFilter = "all";
 let chart;
 let selectedAvatarFile = null;
@@ -283,15 +284,18 @@ $("#mobileMenu").addEventListener("click", () => $("#sidebar").classList.toggle(
 
 async function loadAll() {
   try {
-    const [roomsResult, bookingsResult, dashboardResult] = await Promise.all([
+    const [roomsResult, bookingsResult, roomTypesResult, dashboardResult] = await Promise.all([
       api("/api/rooms"),
       api("/api/bookings"),
+      api("/api/room-types"),
       api("/api/dashboard"),
     ]);
 
     rooms = roomsResult.data.rooms || [];
     bookings = bookingsResult.data.bookings || [];
+    roomTypes = roomTypesResult.data.room_types || [];
 
+    renderRoomTypes();
     renderRooms();
     renderBookings();
     renderDashboard(dashboardResult.data);
@@ -299,6 +303,26 @@ async function loadAll() {
   } catch (error) {
     console.error(error);
   }
+}
+
+function renderRoomTypes() {
+  if (!Array.isArray(roomTypes) || roomTypes.length === 0) {
+    $("#roomTypesGrid").innerHTML = "<div class='panel empty-feature'><h3>Chưa có dữ liệu thể loại</h3></div>";
+    return;
+  }
+
+  $("#roomTypesGrid").innerHTML = roomTypes.map((item) => `
+    <div class="room-type-card">
+      <div class="room-type-header">
+        <span class="room-code">${item.label}</span>
+        <span class="room-status success">${item.count} phòng</span>
+      </div>
+      <div class="room-type-body">
+        <strong>${item.key.toUpperCase()}</strong>
+        <p>Giá từ ${money(item.min_price)} đến ${money(item.max_price)}</p>
+      </div>
+    </div>
+  `).join("");
 }
 
 function renderDashboard(summary) {

@@ -30,6 +30,40 @@ class RoomServiceCreateRoomTests(unittest.TestCase):
         self.assertIsNotNone(room)
         self.assertEqual(room["status"], "available")
 
+    def test_list_room_types_returns_category_summary(self):
+        self.service.create_room({
+            "code": "A101",
+            "name": "Phòng đơn deluxe",
+            "description": "Phòng mới cho thuê",
+            "image_url": "https://example.com/room.jpg",
+            "room_type": "single",
+            "price": 1200000,
+            "floor": 1,
+        })
+        self.service.create_room({
+            "code": "A102",
+            "name": "Phòng đôi luxury",
+            "description": "Phòng đôi cho thuê",
+            "image_url": "https://example.com/room2.jpg",
+            "room_type": "double",
+            "price": 1800000,
+            "floor": 1,
+        })
+        self.service.create_room({
+            "code": "A103",
+            "name": "Phòng VIP",
+            "description": "Phòng VIP cho thuê",
+            "image_url": "https://example.com/room3.jpg",
+            "room_type": "vip",
+            "price": 3200000,
+            "floor": 2,
+        })
+
+        room_types = self.service.list_room_types()
+
+        self.assertEqual({item["key"] for item in room_types}, {"single", "double", "vip"})
+        self.assertEqual({item["count"] for item in room_types}, {1})
+
 
 if __name__ == "__main__":
     unittest.main()

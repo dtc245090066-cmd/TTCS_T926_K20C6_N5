@@ -209,6 +209,38 @@ class RoomService:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def list_room_types(self) -> list[dict[str, Any]]:
+        type_labels = {
+            "single": "Phòng đơn",
+            "double": "Phòng đôi",
+            "vip": "Phòng VIP",
+        }
+
+        with self.database.connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT room_type, COUNT(*) AS count, MIN(price) AS min_price, MAX(price) AS max_price
+                FROM rooms
+                GROUP BY room_type
+                ORDER BY room_type
+                """
+            ).fetchall()
+
+        room_map = {row["room_type"]: dict(row) for row in rows}
+        result = []
+
+        for key in ("single", "double", "vip"):
+            row = room_map.get(key, {})
+            result.append({
+                "key": key,
+                "label": type_labels.get(key, key.upper()),
+                "count": int(row.get("count") or 0),
+                "min_price": float(row.get("min_price") or 0),
+                "max_price": float(row.get("max_price") or 0),
+            })
+
+        return result
+
     def create_room(self, payload: dict[str, Any]):
         try:
             data = self._normalize_room_data(payload)
