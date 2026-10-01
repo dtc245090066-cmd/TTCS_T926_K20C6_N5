@@ -250,3 +250,4 @@ class Database:
                         ("BK-2056", "Lê Thu Hà", 5, "2026-09-28", "2026-09-30", 9000000, "checked_in"),
                     ],
                 )
+        connection.close()

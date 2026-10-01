@@ -80,20 +80,13 @@
 </section>
 
 <div id="dashboardView" class="app-shell hidden">
-  <aside class="sidebar" id="sidebar">
+  <header class="sidebar navbar" id="sidebar">
     <div class="brand">
       <div class="brand-mark">L</div>
       <div><div class="brand-name">Lumi<span>Hotel</span></div><div class="brand-sub">Hotel management</div></div>
     </div>
 
-    <div class="hotel-card">
-      <div class="hotel-photo"></div>
-      <div><strong>Lumi Grand Hotel</strong><small>Chi nhánh trung tâm</small></div>
-      <span class="hotel-dot">●</span>
-    </div>
-
     <nav class="nav">
-      <p class="nav-label">TỔNG QUAN</p>
       <button class="nav-item active" data-view="overview"><span>⌂</span>Tổng quan</button>
       <div class="nav-booking-group">
         <button class="nav-item" data-view="bookings" aria-expanded="false"><span>▤</span>Đặt phòng <b class="badge" id="bookingBadge">0</b><span class="booking-caret" aria-hidden="true">⌄</span></button>
@@ -106,33 +99,30 @@
         <button class="nav-item" data-view="rooms" aria-expanded="false"><span>▦</span>Phòng<span class="booking-caret" aria-hidden="true">⌄</span></button>
         <div class="nav-submenu" aria-label="Chức năng phòng">
           <button class="nav-subitem" data-room-subview="room-list"><span>▤</span>Danh sách phòng</button>
+          <button class="nav-subitem" data-room-subview="room-types"><span>▦</span>Danh sách thể loại phòng</button>
         </div>
       </div>
-      <button class="nav-item" data-view="room-types"><span>▤</span>Loại phòng</button>
-      <button class="nav-item" data-view="room-types"><span>▤</span>Loại phòng</button>
     </nav>
 
-    <div class="sidebar-bottom">
-      <div class="help-card"><div class="help-icon">?</div><div><strong>Cần hỗ trợ?</strong><small>Trung tâm trợ giúp Lumi</small></div></div>
+    <div class="navbar-actions">
+      <button class="icon-btn notification" title="Thông báo" aria-label="Thông báo">♢<i></i></button>
       <div class="profile">
-        <div class="avatar" id="profileAvatarBadge">LH</div>
+        <button class="top-avatar" id="topProfileBtn" title="Mở hồ sơ người dùng" aria-label="Mở hồ sơ người dùng"><span id="topUserInitials">LH</span></button>
         <div class="profile-info"><strong id="userName">Admin</strong><small id="userRole">Quản lý</small></div>
         <button class="icon-btn" id="profileBtn" title="Cập nhật hồ sơ">✎</button>
         <button class="icon-btn" id="logoutBtn" title="Đăng xuất">↪</button>
       </div>
+      <span class="hidden" id="profileAvatarBadge">LH</span>
     </div>
-  </aside>
+  </header>
 
   <main class="main">
     <header class="topbar">
       <div>
-        <button class="mobile-menu" id="mobileMenu">☰</button>
         <span class="eyebrow">LUMIHOTEL / HỆ THỐNG QUẢN LÝ</span>
       </div>
       <div class="top-actions">
-        <button class="icon-btn notification" title="Thông báo" aria-label="Thông báo">♢<i></i></button>
         <button class="primary-btn hidden" id="bookingBtn">＋ Đặt phòng mới</button>
-        <button class="top-avatar" id="topProfileBtn" title="Tài khoản" aria-label="Mở hồ sơ người dùng"><span id="topUserInitials">LH</span></button>
       </div>
     </header>
 

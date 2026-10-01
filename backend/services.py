@@ -438,6 +438,103 @@ class RoomService:
 
         return True, "Xóa phòng thành công."
 
+    def list_room_types(self) -> list[dict[str, Any]]:
+        with self.database.connect() as connection:
+            rows = connection.execute(
+                "SELECT code, name FROM room_types ORDER BY name COLLATE NOCASE"
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def create_room_type(self, payload: dict[str, Any]):
+        if not isinstance(payload, dict):
+            return False, "Dữ liệu thể loại không hợp lệ.", None
+
+        code = str(payload.get("code", "")).strip().lower()
+        name = str(payload.get("name", "")).strip()
+        if not re.fullmatch(r"[a-z][a-z0-9_-]{1,19}", code):
+            return False, "Mã thể loại phải gồm 2-20 ký tự chữ thường, số, _ hoặc -.", None
+        if not name or len(name) > 60:
+            return False, "Tên thể loại phải có từ 1 đến 60 ký tự.", None
+
+        try:
+            with self.database.connect() as connection:
+                connection.execute(
+                    "INSERT INTO room_types(code, name) VALUES (?, ?)",
+                    (code, name),
+                )
+                room_type = connection.execute(
+                    "SELECT code, name FROM room_types WHERE code = ?",
+                    (code,),
+                ).fetchone()
+        except sqlite3.IntegrityError:
+            return False, "Mã hoặc tên thể loại đã tồn tại.", None
+
+        return True, "Thêm thể loại phòng thành công.", dict(room_type)
+
+    def update_room_type(self, code: str, payload: dict[str, Any]):
+        if not isinstance(payload, dict):
+            return False, "Dữ liệu thể loại không hợp lệ.", None
+
+        old_code = code.strip().lower()
+        new_code = str(payload.get("code", old_code)).strip().lower()
+        name = str(payload.get("name", "")).strip()
+        if not re.fullmatch(r"[a-z][a-z0-9_-]{1,19}", new_code):
+            return False, "Mã thể loại phải gồm 2-20 ký tự chữ thường, số, _ hoặc -.", None
+        if not name or len(name) > 60:
+            return False, "Tên thể loại phải có từ 1 đến 60 ký tự.", None
+
+        try:
+            with self.database.connect() as connection:
+                room_type_exists = connection.execute(
+                    "SELECT 1 FROM room_types WHERE code = ?",
+                    (old_code,),
+                ).fetchone()
+                if room_type_exists is None:
+                    return False, "Thể loại phòng không tồn tại.", None
+
+                connection.execute(
+                    "UPDATE rooms SET room_type = ? WHERE room_type = ?",
+                    (new_code, old_code),
+                )
+                result = connection.execute(
+                    "UPDATE room_types SET code = ?, name = ? WHERE code = ?",
+                    (new_code, name, old_code),
+                )
+                if result.rowcount == 0:
+                    return False, "Thể loại phòng không tồn tại.", None
+                room_type = connection.execute(
+                    "SELECT code, name FROM room_types WHERE code = ?",
+                    (new_code,),
+                ).fetchone()
+        except sqlite3.IntegrityError:
+            return False, "Mã hoặc tên thể loại đã tồn tại.", None
+
+        return True, "Cập nhật thể loại phòng thành công.", dict(room_type)
+
+    def delete_room_type(self, code: str):
+        normalized_code = code.strip().lower()
+        with self.database.connect() as connection:
+            room_type = connection.execute(
+                "SELECT code FROM room_types WHERE code = ?",
+                (normalized_code,),
+            ).fetchone()
+            if room_type is None:
+                return False, "Thể loại phòng không tồn tại."
+
+            room_count = connection.execute(
+                "SELECT COUNT(*) FROM rooms WHERE room_type = ?",
+                (normalized_code,),
+            ).fetchone()[0]
+            if room_count:
+                return False, "Không thể xóa thể loại đang được phòng sử dụng."
+
+            connection.execute(
+                "DELETE FROM room_types WHERE code = ?",
+                (normalized_code,),
+            )
+
+        return True, "Xóa thể loại phòng thành công."
+
 
 class BookingService:
     """Nghiệp vụ đặt phòng, tách khỏi app.py giống mô hình Service của TTCS."""

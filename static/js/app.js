@@ -275,17 +275,16 @@ $("#profileForm").addEventListener("submit", async (event) => {
 });
 
 function setView(view, bookingSubview = "list") {
-  $$(".nav-item").forEach((item) => item.classList.toggle("active", item.dataset.view === view || (item.dataset.view === "rooms" && view === "room-list")));
+  $$(".nav-item").forEach((item) => item.classList.toggle("active", item.dataset.view === view || (item.dataset.view === "rooms" && ["room-list", "room-types"].includes(view))));
   $$("[data-view-panel]").forEach((panel) => panel.classList.toggle("active", panel.dataset.viewPanel === view));
   $("#bookingBtn").classList.toggle("hidden", view !== "bookings");
-  $("#sidebar").classList.remove("open");
   const bookingMenu = $(".nav-booking-group");
   const bookingMenuToggle = bookingMenu.querySelector('[data-view="bookings"]');
-  bookingMenu.classList.toggle("expanded", view === "bookings");
-  bookingMenuToggle.setAttribute("aria-expanded", String(view === "bookings"));
+  bookingMenu.classList.remove("expanded");
+  bookingMenuToggle.setAttribute("aria-expanded", "false");
   const roomMenu = $(".nav-room-group");
   const roomMenuToggle = roomMenu.querySelector('[data-view="rooms"]');
-  if (view === "room-list") roomMenu.classList.add("expanded");
+  if (view !== "rooms") roomMenu.classList.remove("expanded");
   roomMenuToggle.setAttribute("aria-expanded", String(roomMenu.classList.contains("expanded")));
   if (view === "rooms") renderRooms();
   if (view === "room-list") renderRoomList();
@@ -329,8 +328,6 @@ $$("[data-go]").forEach((button) => {
   button.addEventListener("click", () => setView(button.dataset.go));
 });
 
-$("#mobileMenu").addEventListener("click", () => $("#sidebar").classList.toggle("open"));
-
 $("#calendarBookingBtn").addEventListener("click", () => openModal("bookingModal"));
 
 async function loadAll() {
@@ -347,9 +344,9 @@ async function loadAll() {
     bookings = bookingsResult.data.bookings || [];
 
     fillRoomTypeOptions();
-    renderRoomTypes();
     renderRooms();
     renderRoomList();
+    renderRoomTypes();
     renderBookings();
     renderDashboard(dashboardResult.data);
     fillBookingRooms();
@@ -597,7 +594,7 @@ function renderRoomList() {
   const query = $("#roomListSearch").value.trim().toLowerCase();
   const filtered = rooms.filter(room => {
     const matchesStatus = roomListFilter === "all" || room.status === roomListFilter;
-    const searchable = `${room.code} ${room.name} ${room.room_type_name || ""} ${room.room_type}`.toLowerCase();
+  const searchable = `${room.code} ${room.name} ${room.room_type_name || ""} ${room.room_type}`.toLowerCase();
     return matchesStatus && searchable.includes(query);
   });
   $("#roomListBody").innerHTML = filtered.length ? filtered.map(room => {
@@ -689,7 +686,7 @@ function roomCardMarkup(room, showDetails = false) {
         <div><span>◷ Giờ ra</span><strong>${escapeHtml(stay?.check_out_time || "--")}</strong></div>
       </div>
       <div class="room-cost"><strong>${money(room.price)}</strong></div>
-      <div class="room-footer"><span class="room-type">${escapeHtml(room.room_type_name || (room.room_type || "").toUpperCase())} · Tầng ${escapeHtml(room.floor)}</span></div>
+  <div class="room-footer"><span class="room-type">${escapeHtml(room.room_type_name || (room.room_type || "").toUpperCase())} · Tầng ${escapeHtml(room.floor)}</span></div>
       <div class="room-actions">
         ${showDetails ? `<button class="mini-button" data-room-view="${room.id}">Xem</button>` : ""}
         <button class="mini-button" data-edit="${room.id}">Cập nhật</button>

@@ -12,9 +12,9 @@
 .main:has([data-view-panel="overview"].active){padding-top:6px}
 .main:has([data-view-panel="overview"].active) .topbar{margin-bottom:0}
 .main:has([data-view-panel="overview"].active) .section-page-head{margin-top:0}
-.main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active){padding-top:6px}
-.main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active) .topbar{margin-bottom:0}
-.main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active) .section-page-head{margin-top:0}
+.main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active, [data-view-panel="room-types"].active){padding-top:6px}
+.main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active, [data-view-panel="room-types"].active) .topbar{margin-bottom:0}
+.main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active, [data-view-panel="room-types"].active) .section-page-head{margin-top:0}
 .stats-grid{margin-bottom:12px}
 .frontdesk-arrivals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0 0 18px}
 .frontdesk-arrivals>div{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:54px;padding:10px 15px;border:1px solid var(--line);border-radius:11px;background:var(--paper)}
@@ -108,6 +108,7 @@
 .room-list-table th{color:#887d73;font-size:9px;font-weight:700;letter-spacing:1px}
 .room-list-table td{color:var(--ink);font-size:11px}
 .room-list-table tbody tr:last-child td{border-bottom:0}
+.room-type-table{min-width:760px}
 .room-list-status{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:14px;font-size:9px;font-weight:700}
 .room-list-status::before{width:6px;height:6px;border-radius:50%;background:currentColor;content:""}
 .room-list-status.available{background:#e8f5e9;color:#2e7d32}
@@ -163,8 +164,8 @@
 @media(max-width:700px){
   .main{padding:16px 13px 18px}
   .topbar{flex-direction:column;align-items:stretch;gap:13px;margin-bottom:16px}
-  .main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active){padding-top:10px}
-  .main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active) .topbar{margin-bottom:6px}
+  .main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active, [data-view-panel="room-types"].active){padding-top:10px}
+  .main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active, [data-view-panel="room-types"].active) .topbar{margin-bottom:6px}
   .top-actions{display:grid;grid-template-columns:minmax(0,1fr) 38px 38px;gap:8px;justify-content:stretch}
   .topbar .search{grid-column:1 / -1;width:100%;height:40px}
   .topbar .notification{grid-column:2;grid-row:2}
@@ -190,3 +191,65 @@
 
 .toast.toast-centered{top:50%;right:auto;bottom:auto;left:50%;min-width:min(360px,calc(100vw - 32px));padding:22px 30px;border-radius:14px;font-size:18px;font-weight:700;text-align:center;transform:translate(-50%,-50%) scale(.94);box-shadow:0 18px 60px rgba(0,0,0,.24);z-index:1000}
 .toast.toast-centered.show{transform:translate(-50%,-50%) scale(1)}
+
+:root{--navbar-height:76px}
+.app-shell{display:block;min-height:100vh}
+#sidebar.navbar{position:fixed;inset:0 0 auto;z-index:100;width:100%;height:var(--navbar-height);padding:0 28px;display:flex;flex-direction:row;align-items:center;gap:clamp(14px,2vw,30px);overflow:visible;border-bottom:1px solid #453a33;background:#29221e;color:#eee7dd;transform:none;transition:none}
+.navbar .brand{flex:0 0 auto;gap:10px;padding:0;white-space:nowrap}
+.navbar .brand-mark{width:40px;height:40px;border-radius:11px;font-size:26px}
+.navbar .brand-name{font-size:23px;letter-spacing:0}
+.navbar .brand-sub{margin-top:2px;font-size:8px;letter-spacing:1.6px}
+.navbar .nav{display:flex;flex:1;align-items:center;gap:5px;min-width:0;margin:0;overflow:visible}
+.navbar .nav-label{display:none}
+.navbar .nav-booking-group,.navbar .nav-room-group{position:relative;display:grid;flex:0 0 auto}
+.navbar .nav-item{height:42px;margin:0;padding:0 12px;white-space:nowrap}
+.navbar .nav-item.active{box-shadow:inset 0 -3px #d5a967}
+.navbar .nav-item span{font-size:15px}
+.navbar .badge{margin-left:4px}
+.navbar .nav-submenu{position:absolute;top:calc(100% + 9px);left:0;z-index:110;min-width:230px;padding:7px;border:1px solid #4b3e35;border-radius:9px;background:#352c27;box-shadow:0 12px 28px rgba(25,18,14,.22)}
+.navbar .nav-subitem{min-height:36px;padding:8px 10px;border:0;border-radius:6px;color:#d0c4b8;font-size:11px}
+.navbar .nav-subitem:hover,.navbar .nav-subitem.active{background:#40342c;color:#f4d39e}
+.navbar .nav-subitem.active{box-shadow:inset 2px 0 #d5a967}
+.navbar-actions{display:flex;flex:0 0 auto;align-items:center;gap:13px;margin-left:auto}
+.navbar .notification{color:#eee7dd;background:transparent;border-color:#594b40}
+.navbar .profile{display:flex;align-items:center;gap:9px;padding:0;border:0;white-space:nowrap}
+.navbar .profile-info{min-width:74px}
+.navbar .profile-info strong{max-width:112px;overflow:hidden;color:#fff;text-overflow:ellipsis;white-space:nowrap}
+.navbar .profile-info small{color:#aa9e93}
+.navbar .profile .icon-btn{width:30px;height:34px;color:#e8ddd2;font-size:16px}
+.navbar .profile .icon-btn:hover{color:#e1bc7e}
+.navbar .top-avatar{width:38px;height:38px;flex:0 0 38px}
+.app-shell>.main{width:100%;margin:var(--navbar-height) 0 0;padding-right:34px;padding-left:34px}
+
+@media(max-width:1050px){
+  #sidebar.navbar{gap:14px;padding-right:20px;padding-left:20px}
+  .navbar .brand-name{font-size:21px}
+  .navbar .nav{gap:3px}
+  .navbar .nav-item{padding:0 9px;font-size:11px}
+  .navbar-actions{gap:8px}
+  .navbar .profile{gap:7px}
+  .app-shell>.main{padding-right:22px;padding-left:22px}
+}
+
+@media(max-width:850px){
+  .navbar .profile-info{display:none}
+}
+
+@media(max-width:700px){
+  :root{--navbar-height:116px}
+  #sidebar.navbar{height:var(--navbar-height);padding:9px 13px;flex-wrap:wrap;align-content:center;gap:5px 12px}
+  .navbar .brand{order:1}
+  .navbar .brand-mark{width:34px;height:34px;font-size:22px}
+  .navbar .brand-name{font-size:19px}
+  .navbar .brand-sub{font-size:7px}
+  .navbar-actions{order:2;gap:7px}
+  .navbar .notification{width:34px;height:34px}
+  .navbar .top-avatar{width:34px;height:34px;flex-basis:34px}
+  .navbar .profile .icon-btn{width:27px;height:32px}
+  .navbar .nav{order:3;flex:0 0 100%;width:100%;gap:5px;overflow-x:auto;scrollbar-width:none}
+  .navbar .nav::-webkit-scrollbar{display:none}
+  .navbar .nav-item{height:36px;padding:0 10px;font-size:10px}
+  .navbar .nav-item span{font-size:13px}
+  .navbar .nav-submenu{top:calc(100% + 5px);min-width:205px}
+  .app-shell>.main{padding-right:13px;padding-left:13px}
+}
