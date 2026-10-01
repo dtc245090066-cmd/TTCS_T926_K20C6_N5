@@ -272,20 +272,21 @@ class RoomService:
 
     def delete_room(self, room_id: int):
         with self.database.connect() as connection:
-            result = connection.execute(
-                "DELETE FROM rooms WHERE id = ? AND status = 'available'",
+            room = connection.execute(
+                "SELECT id FROM rooms WHERE id = ?",
+                (room_id,),
+            ).fetchone()
+            if room is None:
+                return False, "Phòng không tồn tại."
+
+            connection.execute(
+                "DELETE FROM bookings WHERE room_id = ?",
                 (room_id,),
             )
-            if result.rowcount == 0:
-                room = connection.execute(
-                    "SELECT id FROM rooms WHERE id = ?",
-                    (room_id,),
-                ).fetchone()
-
-                if room is None:
-                    return False, "Phòng không tồn tại."
-
-                return False, "Chỉ có thể xóa phòng đang trống."
+            connection.execute(
+                "DELETE FROM rooms WHERE id = ?",
+                (room_id,),
+            )
 
         return True, "Xóa phòng thành công."
 

@@ -108,10 +108,6 @@
           <button class="nav-subitem" data-room-subview="room-list"><span>▤</span>Danh sách phòng</button>
         </div>
       </div>
-      <button class="nav-item" data-view="guests"><span>♙</span>Khách hàng</button>
-      <p class="nav-label">VẬN HÀNH</p>
-      <button class="nav-item" data-view="housekeeping"><span>✦</span>Buồng phòng</button>
-      <button class="nav-item" data-view="reports"><span>◔</span>Báo cáo</button>
     </nav>
 
     <div class="sidebar-bottom">
@@ -132,14 +128,14 @@
         <span class="eyebrow">LUMIHOTEL / HỆ THỐNG QUẢN LÝ</span>
       </div>
       <div class="top-actions">
-        <label class="search"><span>⌕</span><input id="searchInput" placeholder="Tìm đặt phòng, khách hàng..." /></label>
         <button class="icon-btn notification" title="Thông báo" aria-label="Thông báo">♢<i></i></button>
-        <button class="primary-btn" id="bookingBtn">＋ Đặt phòng mới</button>
+        <button class="primary-btn hidden" id="bookingBtn">＋ Đặt phòng mới</button>
         <button class="top-avatar" id="topProfileBtn" title="Tài khoản" aria-label="Mở hồ sơ người dùng"><span id="topUserInitials">LH</span></button>
       </div>
     </header>
 
     <section class="dashboard-section active" data-view-panel="overview">
+      <div class="section-page-head"><div><h2>Tổng quan</h2></div></div>
       <section class="stats-grid">
         <article class="stat-card featured"><div class="stat-head"><span>Doanh thu</span><span class="stat-icon">₫</span></div><div class="stat-value" id="statRevenue">0₫</div><div class="stat-foot"><span class="up">●</span><span>tổng đơn đặt phòng</span></div></article>
         <article class="stat-card"><div class="stat-head"><span>Đặt phòng</span><span class="stat-icon">▤</span></div><div class="stat-value" id="statBookings">0</div><div class="stat-foot"><span class="up">●</span><span>đơn trong hệ thống</span></div></article>
@@ -239,25 +235,6 @@
           </div>
         </section>
       </div>
-    </section>
-
-    <section class="dashboard-section" data-view-panel="guests">
-      <div class="section-page-head"><div><span class="section-label">KHÁCH HÀNG</span><h2>Khách lưu trú</h2><p>Khu vực này sẵn sàng để mở rộng CustomerService.</p></div></div>
-      <div class="panel empty-feature"><span class="feature-icon">♙</span><h3>Quản lý khách hàng</h3><p>Kiến trúc đã tách Service/Database giống TTCS. Bạn có thể mở rộng CRUD khách hàng ở bước tiếp theo.</p></div>
-    </section>
-
-    <section class="dashboard-section" data-view-panel="housekeeping">
-      <div class="section-page-head"><div><span class="section-label">VẬN HÀNH</span><h2>Buồng phòng</h2></div></div>
-      <div class="stats-grid compact">
-        <article class="stat-card"><div class="stat-head"><span>Đang ở</span></div><div class="stat-value" id="houseOccupied">0</div></article>
-        <article class="stat-card"><div class="stat-head"><span>Đang dọn</span></div><div class="stat-value" id="houseCleaning">0</div></article>
-        <article class="stat-card"><div class="stat-head"><span>Bảo trì</span></div><div class="stat-value" id="houseMaintenance">0</div></article>
-      </div>
-    </section>
-
-    <section class="dashboard-section" data-view-panel="reports">
-      <div class="section-page-head"><div><span class="section-label">BÁO CÁO</span><h2>Tổng hợp vận hành</h2></div></div>
-      <div class="panel report-grid" id="reportGrid"></div>
     </section>
 
     <footer>© 2026 LumiHotel · Python Flask · SQLite · Kiến trúc theo TTCS</footer>
