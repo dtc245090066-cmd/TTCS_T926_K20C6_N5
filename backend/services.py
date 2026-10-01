@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import re
 import sqlite3
 from datetime import date, datetime
@@ -149,8 +150,124 @@ class AuthService:
         return True, "Tạo tài khoản thành công. Bạn có thể đăng nhập ngay."
 
 
+class RoomTypeService:
+    def __init__(self, database: Database) -> None:
+        self.database = database
+
+    def _normalize(self, payload: dict[str, Any]) -> dict[str, Any]:
+        if not isinstance(payload, dict):
+            raise ValueError("Dữ liệu loại phòng không hợp lệ.")
+
+        code = str(payload.get("code", "")).strip().lower()
+        name = str(payload.get("name", "")).strip()
+        description = str(payload.get("description", "")).strip()
+        status = str(payload.get("status", "active")).strip().lower()
+
+        try:
+            price = float(payload.get("price", 0))
+            max_guests = int(payload.get("max_guests", 2))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Giá hoặc số khách tối đa không hợp lệ.") from exc
+
+        if not re.fullmatch(r"[a-z0-9_-]{2,30}", code):
+            raise ValueError("Mã loại phòng chỉ gồm chữ thường, số, '-' hoặc '_'.")
+        if not name or len(name) > 100:
+            raise ValueError("Tên loại phòng không hợp lệ.")
+        if not math.isfinite(price) or price < 0:
+            raise ValueError("Giá mặc định phải lớn hơn hoặc bằng 0.")
+        if max_guests < 1 or max_guests > 50:
+            raise ValueError("Số khách tối đa phải từ 1 đến 50.")
+        if status not in {"active", "inactive"}:
+            raise ValueError("Trạng thái loại phòng không hợp lệ.")
+
+        return {
+            "code": code,
+            "name": name,
+            "description": description or "Loại phòng tại LumiHotel.",
+            "price": round(price, 2),
+            "max_guests": max_guests,
+            "status": status,
+        }
+
+    def list_room_types(self, active_only: bool = False) -> list[dict[str, Any]]:
+        sql = "SELECT * FROM room_types"
+        if active_only:
+            sql += " WHERE status = 'active'"
+        sql += " ORDER BY name"
+        with self.database.connect() as connection:
+            rows = connection.execute(sql).fetchall()
+        return [dict(row) for row in rows]
+
+    def create_room_type(self, payload: dict[str, Any]):
+        try:
+            data = self._normalize(payload)
+            with self.database.connect() as connection:
+                cursor = connection.execute(
+                    """
+                    INSERT INTO room_types(code, name, description, price, max_guests, status)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        data["code"], data["name"], data["description"],
+                        data["price"], data["max_guests"], data["status"],
+                    ),
+                )
+                row = connection.execute(
+                    "SELECT * FROM room_types WHERE id = ?", (cursor.lastrowid,)
+                ).fetchone()
+        except sqlite3.IntegrityError:
+            return False, "Mã hoặc tên loại phòng đã tồn tại.", None
+        except ValueError as exc:
+            return False, str(exc), None
+        return True, "Thêm loại phòng thành công.", dict(row)
+
+    def update_room_type(self, room_type_id: int, payload: dict[str, Any]):
+        try:
+            data = self._normalize(payload)
+            with self.database.connect() as connection:
+                result = connection.execute(
+                    """
+                    UPDATE room_types
+                    SET code = ?, name = ?, description = ?, price = ?,
+                        max_guests = ?, status = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                    """,
+                    (
+                        data["code"], data["name"], data["description"],
+                        data["price"], data["max_guests"], data["status"], room_type_id,
+                    ),
+                )
+                if result.rowcount == 0:
+                    return False, "Loại phòng không tồn tại.", None
+                row = connection.execute(
+                    "SELECT * FROM room_types WHERE id = ?", (room_type_id,)
+                ).fetchone()
+        except sqlite3.IntegrityError:
+            return False, "Mã hoặc tên loại phòng đã tồn tại.", None
+        except ValueError as exc:
+            return False, str(exc), None
+        return True, "Cập nhật loại phòng thành công.", dict(row)
+
+    def delete_room_type(self, room_type_id: int):
+        with self.database.connect() as connection:
+            room_type = connection.execute(
+                "SELECT id FROM room_types WHERE id = ?", (room_type_id,)
+            ).fetchone()
+            if room_type is None:
+                return False, "Loại phòng không tồn tại."
+
+            in_use = connection.execute(
+                "SELECT 1 FROM rooms WHERE room_type_id = ? LIMIT 1",
+                (room_type_id,),
+            ).fetchone()
+            if in_use:
+                return False, "Không thể xóa loại phòng đang được sử dụng."
+
+            connection.execute("DELETE FROM room_types WHERE id = ?", (room_type_id,))
+        return True, "Xóa loại phòng thành công."
+
+
 class RoomService:
-    ROOM_TYPES = {"single", "double", "vip"}
     ROOM_STATUSES = {"available", "occupied", "cleaning", "maintenance"}
 
     def __init__(self, database: Database) -> None:
@@ -179,7 +296,12 @@ class RoomService:
         if not name or len(name) > 120:
             raise ValueError("Tên phòng không hợp lệ.")
 
-        if room_type not in self.ROOM_TYPES:
+        with self.database.connect() as connection:
+            room_type_row = connection.execute(
+                "SELECT id, code FROM room_types WHERE code = ? COLLATE NOCASE",
+                (room_type,),
+            ).fetchone()
+        if room_type_row is None:
             raise ValueError("Loại phòng không hợp lệ.")
 
         if status not in self.ROOM_STATUSES:
@@ -197,6 +319,8 @@ class RoomService:
             "description": description or "Phòng tại LumiHotel.",
             "image_url": image_url,
             "room_type": room_type,
+            "room_type_id": room_type_row["id"],
+            "legacy_room_type": room_type if room_type in {"single", "double", "vip"} else "single",
             "price": round(price, 2),
             "status": status,
             "floor": floor,
@@ -205,9 +329,21 @@ class RoomService:
     def list_rooms(self) -> list[dict[str, Any]]:
         with self.database.connect() as connection:
             rows = connection.execute(
-                "SELECT * FROM rooms ORDER BY floor, code"
+                """
+                SELECT rooms.*, room_types.code AS assigned_type_code,
+                    room_types.name AS room_type_name
+                FROM rooms
+                LEFT JOIN room_types ON room_types.id = rooms.room_type_id
+                ORDER BY rooms.floor, rooms.code
+                """
             ).fetchall()
-        return [dict(row) for row in rows]
+        return [self._serialize_room(row) for row in rows]
+
+    @staticmethod
+    def _serialize_room(row: sqlite3.Row) -> dict[str, Any]:
+        room = dict(row)
+        room["room_type"] = room.pop("assigned_type_code", None) or room["room_type"]
+        return room
 
     def create_room(self, payload: dict[str, Any]):
         try:
@@ -216,19 +352,25 @@ class RoomService:
                 cursor = connection.execute(
                     """
                     INSERT INTO rooms(
-                        code, name, description, image_url,
-                        room_type, price, status, floor
+                        code, name, description, image_url, room_type, room_type_id,
+                        price, status, floor
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         data["code"], data["name"], data["description"],
-                        data["image_url"], data["room_type"], data["price"],
+                        data["image_url"], data["legacy_room_type"], data["room_type_id"], data["price"],
                         data["status"], data["floor"],
                     ),
                 )
                 room = connection.execute(
-                    "SELECT * FROM rooms WHERE id = ?",
+                    """
+                    SELECT rooms.*, room_types.code AS assigned_type_code,
+                        room_types.name AS room_type_name
+                    FROM rooms
+                    LEFT JOIN room_types ON room_types.id = rooms.room_type_id
+                    WHERE rooms.id = ?
+                    """,
                     (cursor.lastrowid,),
                 ).fetchone()
         except sqlite3.IntegrityError:
@@ -236,7 +378,7 @@ class RoomService:
         except ValueError as exc:
             return False, str(exc), None
 
-        return True, "Thêm phòng thành công.", dict(room)
+        return True, "Thêm phòng thành công.", self._serialize_room(room)
 
     def update_room(self, room_id: int, payload: dict[str, Any]):
         try:
@@ -246,13 +388,13 @@ class RoomService:
                     """
                     UPDATE rooms
                     SET code = ?, name = ?, description = ?, image_url = ?,
-                        room_type = ?, price = ?, status = ?, floor = ?,
+                        room_type = ?, room_type_id = ?, price = ?, status = ?, floor = ?,
                         updated_at = CURRENT_TIMESTAMP
                     WHERE id = ?
                     """,
                     (
                         data["code"], data["name"], data["description"],
-                        data["image_url"], data["room_type"], data["price"],
+                        data["image_url"], data["legacy_room_type"], data["room_type_id"], data["price"],
                         data["status"], data["floor"], room_id,
                     ),
                 )
@@ -260,7 +402,13 @@ class RoomService:
                     return False, "Phòng không tồn tại.", None
 
                 room = connection.execute(
-                    "SELECT * FROM rooms WHERE id = ?",
+                    """
+                    SELECT rooms.*, room_types.code AS assigned_type_code,
+                        room_types.name AS room_type_name
+                    FROM rooms
+                    LEFT JOIN room_types ON room_types.id = rooms.room_type_id
+                    WHERE rooms.id = ?
+                    """,
                     (room_id,),
                 ).fetchone()
         except sqlite3.IntegrityError:
@@ -268,7 +416,7 @@ class RoomService:
         except ValueError as exc:
             return False, str(exc), None
 
-        return True, "Cập nhật phòng thành công.", dict(room)
+        return True, "Cập nhật phòng thành công.", self._serialize_room(room)
 
     def delete_room(self, room_id: int):
         with self.database.connect() as connection:

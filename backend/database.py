@@ -54,6 +54,32 @@ class Database:
                     )
 
             connection.execute("""
+                CREATE TABLE IF NOT EXISTS room_types (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    code TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                    name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                    description TEXT NOT NULL DEFAULT '',
+                    price REAL NOT NULL DEFAULT 0,
+                    max_guests INTEGER NOT NULL DEFAULT 2,
+                    status TEXT NOT NULL DEFAULT 'active'
+                        CHECK(status IN ('active', 'inactive')),
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            connection.executemany(
+                """
+                INSERT OR IGNORE INTO room_types(code, name, description, price, max_guests)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                [
+                    ("single", "Phòng đơn", "Phòng dành cho một khách.", 1000000, 1),
+                    ("double", "Phòng đôi", "Phòng dành cho hai khách.", 1500000, 2),
+                    ("vip", "Phòng VIP", "Phòng cao cấp.", 3000000, 4),
+                ],
+            )
+
+            connection.execute("""
                 CREATE TABLE IF NOT EXISTS rooms (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     code TEXT NOT NULL UNIQUE,
@@ -62,6 +88,7 @@ class Database:
                     image_url TEXT,
                     room_type TEXT NOT NULL
                         CHECK(room_type IN ('single', 'double', 'vip')),
+                    room_type_id INTEGER REFERENCES room_types(id),
                     price REAL NOT NULL DEFAULT 0,
                     status TEXT NOT NULL DEFAULT 'available'
                         CHECK(status IN ('available', 'occupied', 'cleaning', 'maintenance')),
@@ -70,6 +97,23 @@ class Database:
                     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+
+            room_columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(rooms)").fetchall()
+            }
+            if "room_type_id" not in room_columns:
+                connection.execute(
+                    "ALTER TABLE rooms ADD COLUMN room_type_id INTEGER REFERENCES room_types(id)"
+                )
+            connection.execute(
+                """
+                UPDATE rooms
+                SET room_type_id = (
+                    SELECT id FROM room_types WHERE room_types.code = rooms.room_type
+                )
+                WHERE room_type_id IS NULL
+                """
+            )
 
             connection.execute("""
                 CREATE TABLE IF NOT EXISTS customers (
@@ -176,6 +220,16 @@ class Database:
                     """,
                     rooms_to_add,
                 )
+
+            connection.execute(
+                """
+                UPDATE rooms
+                SET room_type_id = (
+                    SELECT id FROM room_types WHERE room_types.code = rooms.room_type
+                )
+                WHERE room_type_id IS NULL
+                """
+            )
 
             booking_count = connection.execute(
                 "SELECT COUNT(*) AS total FROM bookings"

@@ -108,6 +108,8 @@
           <button class="nav-subitem" data-room-subview="room-list"><span>▤</span>Danh sách phòng</button>
         </div>
       </div>
+      <button class="nav-item" data-view="room-types"><span>▤</span>Loại phòng</button>
+      <button class="nav-item" data-view="room-types"><span>▤</span>Loại phòng</button>
     </nav>
 
     <div class="sidebar-bottom">
@@ -206,6 +208,17 @@
       <div class="panel room-list-panel"><div class="table-scroll"><table class="room-list-table"><thead><tr><th>MÃ PHÒNG</th><th>TÊN PHÒNG</th><th>LOẠI / TẦNG</th><th>GIÁ / ĐÊM</th><th>GIỜ VÀO</th><th>GIỜ RA</th><th>TRẠNG THÁI</th><th>THAO TÁC</th></tr></thead><tbody id="roomListBody"></tbody></table></div></div>
     </section>
 
+    <section class="dashboard-section" data-view-panel="room-types">
+      <div class="section-page-head">
+        <div><span class="section-label">DANH MỤC PHÒNG</span><h2>Quản lý loại phòng</h2><p>Danh mục loại phòng được sử dụng khi khai báo phòng.</p></div>
+        <button class="primary-btn" id="openRoomTypeForm">＋ Thêm loại phòng</button>
+      </div>
+      <div class="panel room-list-panel"><div class="table-scroll"><table class="room-list-table room-types-table">
+        <thead><tr><th>MÃ</th><th>TÊN LOẠI PHÒNG</th><th>MÔ TẢ</th><th>GIÁ MẶC ĐỊNH</th><th>KHÁCH TỐI ĐA</th><th>TRẠNG THÁI</th><th>THAO TÁC</th></tr></thead>
+        <tbody id="roomTypesTable"></tbody>
+      </table></div></div>
+    </section>
+
     <section class="dashboard-section" data-view-panel="bookings">
       <div class="booking-subview active" data-booking-panel="list">
         <div class="section-page-head"><div><span class="section-label">LƯU TRÚ</span><h2>Danh sách khách đặt phòng</h2><p>Dữ liệu đặt phòng được lưu trong SQLite.</p></div><button class="primary-btn" id="bookingBtn2">＋ Đặt phòng</button></div>
@@ -274,12 +287,7 @@
       <input id="roomImage" type="hidden">
       <div class="two">
         <label>Loại phòng
-          <input id="roomType" type="hidden" value="single">
-          <div class="room-type-group">
-            <label class="room-type-option-label"><input type="checkbox" class="room-type-option" value="single" checked> Đơn</label>
-            <label class="room-type-option-label"><input type="checkbox" class="room-type-option" value="double"> Đôi</label>
-            <label class="room-type-option-label"><input type="checkbox" class="room-type-option" value="vip"> VIP</label>
-          </div>
+          <select id="roomTypeSelect" required></select>
         </label>
         <label>Tầng<input id="roomFloor" type="number" min="1" value="1"></label>
       </div>
@@ -289,6 +297,27 @@
       </div>
       <p id="roomMessage" class="form-message"></p>
       <div class="form-actions"><button type="button" class="ghost-btn" data-close="roomModal">Hủy</button><button class="primary-btn">Lưu phòng</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal" id="roomTypeModal">
+  <div class="modal-box">
+    <button class="modal-close" data-close="roomTypeModal">×</button>
+    <span class="section-label">DANH MỤC LOẠI PHÒNG</span>
+    <h3 id="roomTypeModalTitle">Thêm loại phòng</h3>
+    <form id="roomTypeForm">
+      <input id="roomTypeId" type="hidden">
+      <label>Mã loại phòng<input id="roomTypeCode" required maxlength="30" placeholder="family"></label>
+      <label>Tên loại phòng<input id="roomTypeName" required maxlength="100" placeholder="Phòng gia đình"></label>
+      <label>Mô tả<input id="roomTypeDescription" placeholder="Phòng dành cho gia đình..."></label>
+      <div class="two">
+        <label>Giá mặc định / đêm<input id="roomTypePrice" type="number" min="0" value="1800000" required></label>
+        <label>Số khách tối đa<input id="roomTypeGuests" type="number" min="1" max="50" value="4" required></label>
+      </div>
+      <label>Trạng thái<select id="roomTypeStatus"><option value="active">Đang sử dụng</option><option value="inactive">Ngừng sử dụng</option></select></label>
+      <p id="roomTypeMessage" class="form-message"></p>
+      <div class="form-actions"><button type="button" class="ghost-btn" data-close="roomTypeModal">Hủy</button><button class="primary-btn">Lưu loại phòng</button></div>
     </form>
   </div>
 </div>

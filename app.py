@@ -7,7 +7,7 @@ from flask import Flask, jsonify, render_template, request, session
 from werkzeug.utils import secure_filename
 
 from backend.database import Database
-from backend.services import AuthService, RoomService, BookingService, DashboardService
+from backend.services import AuthService, RoomService, RoomTypeService, BookingService, DashboardService
 
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -28,6 +28,7 @@ database = Database(app.config["DATABASE_PATH"])
 
 auth_service = AuthService(database)
 room_service = RoomService(database)
+room_type_service = RoomTypeService(database)
 booking_service = BookingService(database)
 dashboard_service = DashboardService(database)
 
@@ -152,6 +153,40 @@ def get_rooms():
     if not login_required():
         return jsonify({"ok": False, "message": "Vui lòng đăng nhập."}), 401
     return jsonify({"ok": True, "rooms": room_service.list_rooms()})
+
+
+@app.get("/api/room-types")
+def get_room_types():
+    if not login_required():
+        return jsonify({"ok": False, "message": "Vui lòng đăng nhập."}), 401
+    active_only = request.args.get("active_only", "0") == "1"
+    return jsonify({"ok": True, "room_types": room_type_service.list_room_types(active_only)})
+
+
+@app.post("/api/room-types")
+def create_room_type():
+    if not login_required():
+        return jsonify({"ok": False, "message": "Vui lòng đăng nhập."}), 401
+    payload = request.get_json(silent=True) or {}
+    ok, message, room_type = room_type_service.create_room_type(payload)
+    return jsonify({"ok": ok, "message": message, "room_type": room_type}), 201 if ok else 400
+
+
+@app.put("/api/room-types/<int:room_type_id>")
+def update_room_type(room_type_id):
+    if not login_required():
+        return jsonify({"ok": False, "message": "Vui lòng đăng nhập."}), 401
+    payload = request.get_json(silent=True) or {}
+    ok, message, room_type = room_type_service.update_room_type(room_type_id, payload)
+    return jsonify({"ok": ok, "message": message, "room_type": room_type}), 200 if ok else 400
+
+
+@app.delete("/api/room-types/<int:room_type_id>")
+def delete_room_type(room_type_id):
+    if not login_required():
+        return jsonify({"ok": False, "message": "Vui lòng đăng nhập."}), 401
+    ok, message = room_type_service.delete_room_type(room_type_id)
+    return jsonify({"ok": ok, "message": message}), 200 if ok else 400
 
 
 @app.post("/api/rooms")
