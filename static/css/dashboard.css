@@ -9,9 +9,12 @@
 .topbar .primary-btn{width:auto;max-width:none;height:42px;padding:0 17px;border-radius:22px;font-size:12px;box-shadow:none;white-space:nowrap}
 .topbar .notification{position:relative;width:38px;height:38px;border-radius:50%;background:#fff;border:1px solid var(--line);color:var(--brown)}
 .top-avatar{display:grid;place-items:center;width:38px;height:38px;flex:0 0 38px;border:0;border-radius:50%;background:#c9a876;color:#fff;font-size:11px;font-weight:700;cursor:pointer}
-.main:has([data-view-panel="rooms"].active){padding-top:14px}
-.main:has([data-view-panel="rooms"].active) .topbar{margin-bottom:8px}
-.main:has([data-view-panel="rooms"].active) .section-page-head{margin-top:0}
+.main:has([data-view-panel="overview"].active){padding-top:6px}
+.main:has([data-view-panel="overview"].active) .topbar{margin-bottom:0}
+.main:has([data-view-panel="overview"].active) .section-page-head{margin-top:0}
+.main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active){padding-top:6px}
+.main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active) .topbar{margin-bottom:0}
+.main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active) .section-page-head{margin-top:0}
 .stats-grid{margin-bottom:12px}
 .frontdesk-arrivals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0 0 18px}
 .frontdesk-arrivals>div{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:54px;padding:10px 15px;border:1px solid var(--line);border-radius:11px;background:var(--paper)}
@@ -160,8 +163,8 @@
 @media(max-width:700px){
   .main{padding:16px 13px 18px}
   .topbar{flex-direction:column;align-items:stretch;gap:13px;margin-bottom:16px}
-  .main:has([data-view-panel="rooms"].active){padding-top:10px}
-  .main:has([data-view-panel="rooms"].active) .topbar{margin-bottom:6px}
+  .main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active){padding-top:10px}
+  .main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active) .topbar{margin-bottom:6px}
   .top-actions{display:grid;grid-template-columns:minmax(0,1fr) 38px 38px;gap:8px;justify-content:stretch}
   .topbar .search{grid-column:1 / -1;width:100%;height:40px}
   .topbar .notification{grid-column:2;grid-row:2}
@@ -184,3 +187,6 @@
   .room-list-filters{gap:5px}
   .hero{min-height:260px}
 }
+
+.toast.toast-centered{top:50%;right:auto;bottom:auto;left:50%;min-width:min(360px,calc(100vw - 32px));padding:22px 30px;border-radius:14px;font-size:18px;font-weight:700;text-align:center;transform:translate(-50%,-50%) scale(.94);box-shadow:0 18px 60px rgba(0,0,0,.24);z-index:1000}
+.toast.toast-centered.show{transform:translate(-50%,-50%) scale(1)}

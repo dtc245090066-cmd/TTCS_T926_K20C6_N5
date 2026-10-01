@@ -41,9 +41,10 @@ function money(value) {
 function toast(message) {
   const el = $("#toast");
   el.textContent = "✓ " + message;
+  el.classList.add("toast-centered");
   el.classList.add("show");
   clearTimeout(window.__toastTimer);
-  window.__toastTimer = setTimeout(() => el.classList.remove("show"), 2500);
+  window.__toastTimer = setTimeout(() => el.classList.remove("show"), 2000);
 }
 
 function message(el, text, success = false) {
@@ -275,6 +276,7 @@ $("#profileForm").addEventListener("submit", async (event) => {
 function setView(view, bookingSubview = "list") {
   $$(".nav-item").forEach((item) => item.classList.toggle("active", item.dataset.view === view || (item.dataset.view === "rooms" && view === "room-list")));
   $$("[data-view-panel]").forEach((panel) => panel.classList.toggle("active", panel.dataset.viewPanel === view));
+  $("#bookingBtn").classList.toggle("hidden", view !== "bookings");
   $("#sidebar").classList.remove("open");
   const bookingMenu = $(".nav-booking-group");
   const bookingMenuToggle = bookingMenu.querySelector('[data-view="bookings"]');
@@ -360,9 +362,6 @@ function renderDashboard(summary) {
   $("#statOccupied").textContent = summary.occupied_rooms;
   renderFrontDeskSummary();
   renderCalendar();
-  $("#houseOccupied").textContent = summary.occupied_rooms;
-  $("#houseCleaning").textContent = summary.cleaning_rooms;
-  $("#houseMaintenance").textContent = summary.maintenance_rooms;
 
   const total = Math.max(Number(summary.revenue || 0), 1);
   const values = [0.14, 0.21, 0.12, 0.18, 0.10, 0.16, 0.09].map(x => Math.round(total * x));
@@ -419,13 +418,6 @@ function renderDashboard(summary) {
     </div>
   `).join("");
 
-  $("#reportGrid").innerHTML = `
-    <div><span>Tổng số phòng</span><strong>${summary.rooms}</strong></div>
-    <div><span>Phòng trống</span><strong>${summary.available_rooms}</strong></div>
-    <div><span>Đang ở</span><strong>${summary.occupied_rooms}</strong></div>
-    <div><span>Đang dọn</span><strong>${summary.cleaning_rooms}</strong></div>
-    <div><span>Bảo trì</span><strong>${summary.maintenance_rooms}</strong></div>
-    <div><span>Doanh thu</span><strong>${money(summary.revenue)}</strong></div>`;
 }
 
 function escapeHtml(value) {
@@ -586,16 +578,12 @@ $("#reservationsCalendar").addEventListener("click", event => {
   const bookingButton = event.target.closest("[data-calendar-booking]");
   if (bookingButton) {
     setView("bookings");
-    $("#searchInput").value = bookingButton.dataset.calendarBooking;
-    $("#searchInput").dispatchEvent(new Event("input", { bubbles: true }));
     return;
   }
 
   const roomButton = event.target.closest("[data-calendar-room]");
   if (roomButton) {
     setView("rooms");
-    $("#searchInput").value = roomButton.dataset.calendarRoom;
-    $("#searchInput").dispatchEvent(new Event("input", { bubbles: true }));
   }
 });
 
@@ -645,10 +633,10 @@ function openRoomDetails(room) {
 }
 
 async function deleteRoom(roomId) {
-  if (!confirm("Bạn có chắc muốn xóa phòng này?")) return;
+  if (!confirm("Xóa phòng này và tất cả đặt phòng liên quan? Dữ liệu đặt phòng sẽ bị xóa vĩnh viễn.")) return;
   const { response, data } = await api(`/api/rooms/${roomId}`, { method: "DELETE" });
   if (response.ok) {
-    toast(data.message);
+    toast(data.message || "Xóa phòng thành công.");
     await loadAll();
   } else {
     toast(data.message || "Không thể xóa phòng.");
@@ -938,19 +926,6 @@ $("#roomForm").addEventListener("submit", async (event) => {
     toast(data.message);
     await loadAll();
   }
-});
-
-$("#searchInput").addEventListener("input", (event) => {
-  const q = event.target.value.trim().toLowerCase();
-  $$(".room-card").forEach(card => {
-    card.style.display = card.textContent.toLowerCase().includes(q) ? "" : "none";
-  });
-  $$("#allBookings tr, #recentBookings tr").forEach(row => {
-    row.style.display = row.textContent.toLowerCase().includes(q) ? "" : "none";
-  });
-  $$(".calendar-booking").forEach(booking => {
-    booking.style.display = booking.textContent.toLowerCase().includes(q) ? "" : "none";
-  });
 });
 
 checkSession();
