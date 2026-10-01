@@ -154,6 +154,42 @@ def get_rooms():
     return jsonify({"ok": True, "rooms": room_service.list_rooms()})
 
 
+@app.get("/api/room-types")
+def get_room_types():
+    if not login_required():
+        return jsonify({"ok": False, "message": "Vui lòng đăng nhập."}), 401
+    return jsonify({"ok": True, "room_types": room_service.list_room_types()})
+
+
+@app.post("/api/room-types")
+def create_room_type():
+    if not login_required():
+        return jsonify({"ok": False, "message": "Vui lòng đăng nhập."}), 401
+
+    payload = request.get_json(silent=True) or {}
+    ok, message, room_type = room_service.create_room_type(payload)
+    return jsonify({"ok": ok, "message": message, "room_type": room_type}), 201 if ok else 400
+
+
+@app.put("/api/room-types/<string:code>")
+def update_room_type(code):
+    if not login_required():
+        return jsonify({"ok": False, "message": "Vui lòng đăng nhập."}), 401
+
+    payload = request.get_json(silent=True) or {}
+    ok, message, room_type = room_service.update_room_type(code, payload)
+    return jsonify({"ok": ok, "message": message, "room_type": room_type}), 200 if ok else 400
+
+
+@app.delete("/api/room-types/<string:code>")
+def delete_room_type(code):
+    if not login_required():
+        return jsonify({"ok": False, "message": "Vui lòng đăng nhập."}), 401
+
+    ok, message = room_service.delete_room_type(code)
+    return jsonify({"ok": ok, "message": message}), 200 if ok else 400
+
+
 @app.post("/api/rooms")
 def create_room():
     if not login_required():

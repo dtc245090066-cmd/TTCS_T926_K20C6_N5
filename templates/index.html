@@ -80,20 +80,13 @@
 </section>
 
 <div id="dashboardView" class="app-shell hidden">
-  <aside class="sidebar" id="sidebar">
+  <header class="sidebar navbar" id="sidebar">
     <div class="brand">
       <div class="brand-mark">L</div>
       <div><div class="brand-name">Lumi<span>Hotel</span></div><div class="brand-sub">Hotel management</div></div>
     </div>
 
-    <div class="hotel-card">
-      <div class="hotel-photo"></div>
-      <div><strong>Lumi Grand Hotel</strong><small>Chi nhánh trung tâm</small></div>
-      <span class="hotel-dot">●</span>
-    </div>
-
     <nav class="nav">
-      <p class="nav-label">TỔNG QUAN</p>
       <button class="nav-item active" data-view="overview"><span>⌂</span>Tổng quan</button>
       <div class="nav-booking-group">
         <button class="nav-item" data-view="bookings" aria-expanded="false"><span>▤</span>Đặt phòng <b class="badge" id="bookingBadge">0</b><span class="booking-caret" aria-hidden="true">⌄</span></button>
@@ -106,31 +99,30 @@
         <button class="nav-item" data-view="rooms" aria-expanded="false"><span>▦</span>Phòng<span class="booking-caret" aria-hidden="true">⌄</span></button>
         <div class="nav-submenu" aria-label="Chức năng phòng">
           <button class="nav-subitem" data-room-subview="room-list"><span>▤</span>Danh sách phòng</button>
+          <button class="nav-subitem" data-room-subview="room-types"><span>▦</span>Danh sách thể loại phòng</button>
         </div>
       </div>
     </nav>
 
-    <div class="sidebar-bottom">
-      <div class="help-card"><div class="help-icon">?</div><div><strong>Cần hỗ trợ?</strong><small>Trung tâm trợ giúp Lumi</small></div></div>
+    <div class="navbar-actions">
+      <button class="icon-btn notification" title="Thông báo" aria-label="Thông báo">♢<i></i></button>
       <div class="profile">
-        <div class="avatar" id="profileAvatarBadge">LH</div>
+        <button class="top-avatar" id="topProfileBtn" title="Mở hồ sơ người dùng" aria-label="Mở hồ sơ người dùng"><span id="topUserInitials">LH</span></button>
         <div class="profile-info"><strong id="userName">Admin</strong><small id="userRole">Quản lý</small></div>
         <button class="icon-btn" id="profileBtn" title="Cập nhật hồ sơ">✎</button>
         <button class="icon-btn" id="logoutBtn" title="Đăng xuất">↪</button>
       </div>
+      <span class="hidden" id="profileAvatarBadge">LH</span>
     </div>
-  </aside>
+  </header>
 
   <main class="main">
     <header class="topbar">
       <div>
-        <button class="mobile-menu" id="mobileMenu">☰</button>
         <span class="eyebrow">LUMIHOTEL / HỆ THỐNG QUẢN LÝ</span>
       </div>
       <div class="top-actions">
-        <button class="icon-btn notification" title="Thông báo" aria-label="Thông báo">♢<i></i></button>
         <button class="primary-btn hidden" id="bookingBtn">＋ Đặt phòng mới</button>
-        <button class="top-avatar" id="topProfileBtn" title="Tài khoản" aria-label="Mở hồ sơ người dùng"><span id="topUserInitials">LH</span></button>
       </div>
     </header>
 
@@ -206,6 +198,11 @@
       <div class="panel room-list-panel"><div class="table-scroll"><table class="room-list-table"><thead><tr><th>MÃ PHÒNG</th><th>TÊN PHÒNG</th><th>LOẠI / TẦNG</th><th>GIÁ / ĐÊM</th><th>GIỜ VÀO</th><th>GIỜ RA</th><th>TRẠNG THÁI</th><th>THAO TÁC</th></tr></thead><tbody id="roomListBody"></tbody></table></div></div>
     </section>
 
+    <section class="dashboard-section" data-view-panel="room-types">
+      <div class="section-page-head"><div><span class="section-label">QUẢN LÝ PHÒNG</span><h2>Danh sách thể loại phòng</h2><p>Tổng hợp số lượng phòng và giá theo từng thể loại.</p></div><button class="primary-btn" id="openRoomTypeForm">＋ Thêm thể loại</button></div>
+      <div class="panel room-list-panel"><div class="table-scroll"><table class="room-list-table room-type-table"><thead><tr><th>MÃ LOẠI</th><th>THỂ LOẠI PHÒNG</th><th>SỐ LƯỢNG PHÒNG</th><th>GIÁ / ĐÊM</th><th>THAO TÁC</th></tr></thead><tbody id="roomTypeListBody"></tbody></table></div></div>
+    </section>
+
     <section class="dashboard-section" data-view-panel="bookings">
       <div class="booking-subview active" data-booking-panel="list">
         <div class="section-page-head"><div><span class="section-label">LƯU TRÚ</span><h2>Danh sách khách đặt phòng</h2><p>Dữ liệu đặt phòng được lưu trong SQLite.</p></div><button class="primary-btn" id="bookingBtn2">＋ Đặt phòng</button></div>
@@ -275,11 +272,7 @@
       <div class="two">
         <label>Loại phòng
           <input id="roomType" type="hidden" value="single">
-          <div class="room-type-group">
-            <label class="room-type-option-label"><input type="checkbox" class="room-type-option" value="single" checked> Đơn</label>
-            <label class="room-type-option-label"><input type="checkbox" class="room-type-option" value="double"> Đôi</label>
-            <label class="room-type-option-label"><input type="checkbox" class="room-type-option" value="vip"> VIP</label>
-          </div>
+          <div class="room-type-group" id="roomTypeOptions"></div>
         </label>
         <label>Tầng<input id="roomFloor" type="number" min="1" value="1"></label>
       </div>
@@ -289,6 +282,20 @@
       </div>
       <p id="roomMessage" class="form-message"></p>
       <div class="form-actions"><button type="button" class="ghost-btn" data-close="roomModal">Hủy</button><button class="primary-btn">Lưu phòng</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal" id="roomTypeModal">
+  <div class="modal-box">
+    <button class="modal-close" data-close="roomTypeModal">×</button>
+    <span class="section-label">QUẢN LÝ PHÒNG</span>
+    <h3 id="roomTypeModalTitle">Thêm thể loại phòng</h3>
+    <form id="roomTypeForm">
+      <label>Mã thể loại<input id="roomTypeCode" required minlength="2" maxlength="20" pattern="[a-zA-Z][a-zA-Z0-9_-]{1,19}" placeholder="family_suite"></label>
+      <label>Tên thể loại<input id="roomTypeName" required maxlength="60" placeholder="Phòng gia đình"></label>
+      <p id="roomTypeMessage" class="form-message"></p>
+      <div class="form-actions"><button type="button" class="ghost-btn" data-close="roomTypeModal">Hủy</button><button class="primary-btn" id="roomTypeSubmit">Lưu thể loại</button></div>
     </form>
   </div>
 </div>

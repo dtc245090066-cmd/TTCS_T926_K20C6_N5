@@ -8,6 +8,8 @@ const registerPanel = $("#registerPanel");
 
 let rooms = [];
 let bookings = [];
+let roomTypes = [];
+let editingRoomTypeCode = null;
 let currentFilter = "all";
 let roomListFilter = "all";
 let calendarWeekOffset = 0;
@@ -274,20 +276,20 @@ $("#profileForm").addEventListener("submit", async (event) => {
 });
 
 function setView(view, bookingSubview = "list") {
-  $$(".nav-item").forEach((item) => item.classList.toggle("active", item.dataset.view === view || (item.dataset.view === "rooms" && view === "room-list")));
+  $$(".nav-item").forEach((item) => item.classList.toggle("active", item.dataset.view === view || (item.dataset.view === "rooms" && ["room-list", "room-types"].includes(view))));
   $$("[data-view-panel]").forEach((panel) => panel.classList.toggle("active", panel.dataset.viewPanel === view));
   $("#bookingBtn").classList.toggle("hidden", view !== "bookings");
-  $("#sidebar").classList.remove("open");
   const bookingMenu = $(".nav-booking-group");
   const bookingMenuToggle = bookingMenu.querySelector('[data-view="bookings"]');
-  bookingMenu.classList.toggle("expanded", view === "bookings");
-  bookingMenuToggle.setAttribute("aria-expanded", String(view === "bookings"));
+  bookingMenu.classList.remove("expanded");
+  bookingMenuToggle.setAttribute("aria-expanded", "false");
   const roomMenu = $(".nav-room-group");
   const roomMenuToggle = roomMenu.querySelector('[data-view="rooms"]');
-  if (view === "room-list") roomMenu.classList.add("expanded");
+  if (view !== "rooms") roomMenu.classList.remove("expanded");
   roomMenuToggle.setAttribute("aria-expanded", String(roomMenu.classList.contains("expanded")));
   if (view === "rooms") renderRooms();
   if (view === "room-list") renderRoomList();
+  if (view === "room-types") renderRoomTypes();
   if (view === "bookings") {
     currentBookingSubview = bookingSubview;
     $$('[data-booking-panel]').forEach(panel => panel.classList.toggle("active", panel.dataset.bookingPanel === currentBookingSubview));
@@ -323,27 +325,55 @@ $$('[data-room-subview]').forEach(button => {
   button.addEventListener("click", () => setView(button.dataset.roomSubview));
 });
 
+$("#roomTypeListBody").addEventListener("click", event => {
+  const deleteButton = event.target.closest("[data-delete-room-type]");
+  if (deleteButton) {
+    const roomType = roomTypes.find(type => type.code === deleteButton.dataset.deleteRoomType);
+    if (!roomType || !confirm(`Xóa thể loại "${roomType.name}"?`)) return;
+
+    deleteRoomType(roomType.code);
+    return;
+  }
+
+  const editButton = event.target.closest("[data-edit-room-type]");
+  if (editButton) {
+    const roomType = roomTypes.find(type => type.code === editButton.dataset.editRoomType);
+    if (roomType) openRoomTypeModal(roomType);
+    return;
+  }
+
+  const button = event.target.closest("[data-room-type-filter]");
+  if (!button) return;
+
+  roomListFilter = "all";
+  $("#roomListSearch").value = button.dataset.roomTypeFilter;
+  $$("[data-room-list-filter]").forEach(filter => filter.classList.toggle("active", filter.dataset.roomListFilter === "all"));
+  setView("room-list");
+});
+
 $$("[data-go]").forEach((button) => {
   button.addEventListener("click", () => setView(button.dataset.go));
 });
-
-$("#mobileMenu").addEventListener("click", () => $("#sidebar").classList.toggle("open"));
 
 $("#calendarBookingBtn").addEventListener("click", () => openModal("bookingModal"));
 
 async function loadAll() {
   try {
-    const [roomsResult, bookingsResult, dashboardResult] = await Promise.all([
+    const [roomsResult, bookingsResult, dashboardResult, roomTypesResult] = await Promise.all([
       api("/api/rooms"),
       api("/api/bookings"),
       api("/api/dashboard"),
+      api("/api/room-types"),
     ]);
 
     rooms = roomsResult.data.rooms || [];
     bookings = bookingsResult.data.bookings || [];
+    roomTypes = roomTypesResult.data.room_types || [];
 
+    renderRoomTypeOptions($("#roomType").value);
     renderRooms();
     renderRoomList();
+    renderRoomTypes();
     renderBookings();
     renderDashboard(dashboardResult.data);
     fillBookingRooms();
@@ -541,13 +571,13 @@ function renderCalendar() {
       return `<div class="calendar-lane">${dayCells}${bookingBars}</div>`;
     }).join("");
 
-    const roomLabel = `${room.name} · ${room.code} · ${room.room_type || ""} · ${money(room.price)}/đêm`;
+    const roomLabel = `${room.name} · ${room.code} · ${getRoomTypeName(room.room_type)} · ${money(room.price)}/đêm`;
     return `
       <div class="calendar-room-row">
         <div class="calendar-room">
           <button type="button" class="calendar-room-link" data-calendar-room="${escapeHtml(room.code)}" aria-label="Mở phòng ${escapeHtml(room.code)}">
             <strong>${escapeHtml(room.name || `Phòng ${room.code}`)}</strong>
-            <span>${escapeHtml(room.code)} · ${escapeHtml(room.room_type || "Phòng")} · ${money(room.price)}/đêm</span>
+            <span>${escapeHtml(room.code)} · ${escapeHtml(getRoomTypeName(room.room_type))} · ${money(room.price)}/đêm</span>
           </button>
           <i class="calendar-room-status ${escapeHtml(room.status || "available")}" title="${escapeHtml(statusMap[room.status] || "Trạng thái phòng")}"></i>
         </div>
@@ -591,7 +621,7 @@ function renderRoomList() {
   const query = $("#roomListSearch").value.trim().toLowerCase();
   const filtered = rooms.filter(room => {
     const matchesStatus = roomListFilter === "all" || room.status === roomListFilter;
-    const searchable = `${room.code} ${room.name} ${room.room_type}`.toLowerCase();
+    const searchable = `${room.code} ${room.name} ${room.room_type} ${getRoomTypeName(room.room_type)}`.toLowerCase();
     return matchesStatus && searchable.includes(query);
   });
   $("#roomListBody").innerHTML = filtered.length ? filtered.map(room => {
@@ -601,7 +631,7 @@ function renderRoomList() {
       <tr>
         <td><strong>${escapeHtml(room.code)}</strong></td>
         <td>${escapeHtml(room.name)}</td>
-        <td>${escapeHtml((room.room_type || "").toUpperCase())} · Tầng ${escapeHtml(room.floor)}</td>
+        <td>${escapeHtml(getRoomTypeName(room.room_type))} · Tầng ${escapeHtml(room.floor)}</td>
         <td><strong>${money(room.price)}</strong></td>
         <td>${escapeHtml(stay?.check_in_time || "--")}</td>
         <td>${escapeHtml(stay?.check_out_time || "--")}</td>
@@ -615,10 +645,35 @@ function renderRoomList() {
   }).join("") : `<tr><td class="room-list-empty" colspan="8">Không tìm thấy phòng phù hợp.</td></tr>`;
 }
 
+function getRoomTypeName(code) {
+  return roomTypes.find(type => type.code === code)?.name || (code || "-").toUpperCase();
+}
+
+function renderRoomTypes() {
+  $("#roomTypeListBody").innerHTML = roomTypes.map(({ code, name }) => {
+    const typeRooms = rooms.filter(room => room.room_type === code);
+    const prices = typeRooms.map(room => Number(room.price)).filter(Number.isFinite).sort((first, second) => first - second);
+    const priceRange = prices.length
+      ? prices[0] === prices[prices.length - 1]
+        ? money(prices[0])
+        : `${money(prices[0])} - ${money(prices[prices.length - 1])}`
+      : "—";
+
+    return `
+      <tr>
+        <td><strong>${escapeHtml(code.toUpperCase())}</strong></td>
+        <td>${escapeHtml(name)}</td>
+        <td>${typeRooms.length}</td>
+        <td>${priceRange}</td>
+        <td><div class="room-list-actions"><button class="mini-button" data-room-type-filter="${escapeHtml(code)}">Xem phòng</button><button class="mini-button" data-edit-room-type="${escapeHtml(code)}">Cập nhật</button><button class="mini-button danger" data-delete-room-type="${escapeHtml(code)}">Xóa</button></div></td>
+      </tr>`;
+  }).join("");
+}
+
 function openRoomDetails(room) {
   $("#roomDetailsName").textContent = room.name || "Chi tiết phòng";
   $("#roomDetailsCode").textContent = room.code || "-";
-  $("#roomDetailsType").textContent = (room.room_type || "-").toUpperCase();
+  $("#roomDetailsType").textContent = getRoomTypeName(room.room_type);
   $("#roomDetailsFloor").textContent = `Tầng ${room.floor}`;
   $("#roomDetailsPrice").textContent = money(room.price);
   const roomStatus = $("#roomDetailsStatus");
@@ -640,6 +695,16 @@ async function deleteRoom(roomId) {
     await loadAll();
   } else {
     toast(data.message || "Không thể xóa phòng.");
+  }
+}
+
+async function deleteRoomType(code) {
+  const { response, data } = await api(`/api/room-types/${encodeURIComponent(code)}`, { method: "DELETE" });
+  if (response.ok) {
+    toast(data.message || "Xóa thể loại phòng thành công.");
+    await loadAll();
+  } else {
+    toast(data.message || "Không thể xóa thể loại phòng.");
   }
 }
 
@@ -683,7 +748,7 @@ function roomCardMarkup(room, showDetails = false) {
         <div><span>◷ Giờ ra</span><strong>${escapeHtml(stay?.check_out_time || "--")}</strong></div>
       </div>
       <div class="room-cost"><strong>${money(room.price)}</strong></div>
-      <div class="room-footer"><span class="room-type">${escapeHtml((room.room_type || "").toUpperCase())} · Tầng ${escapeHtml(room.floor)}</span></div>
+      <div class="room-footer"><span class="room-type">${escapeHtml(getRoomTypeName(room.room_type))} · Tầng ${escapeHtml(room.floor)}</span></div>
       <div class="room-actions">
         ${showDetails ? `<button class="mini-button" data-room-view="${room.id}">Xem</button>` : ""}
         <button class="mini-button" data-edit="${room.id}">Cập nhật</button>
@@ -819,32 +884,40 @@ $("#bookingForm").addEventListener("submit", async (event) => {
 $("#openRoomForm").addEventListener("click", () => openRoomModal());
 
 function syncRoomTypeSelection(value) {
-  const nextValue = value || "single";
+  const nextValue = value || roomTypes[0]?.code || "";
   $("#roomType").value = nextValue;
   $$(".room-type-option").forEach((checkbox) => {
     checkbox.checked = checkbox.value === nextValue;
   });
 }
 
+function renderRoomTypeOptions(selectedValue = $("#roomType").value) {
+  const selectedType = roomTypes.some(type => type.code === selectedValue)
+    ? selectedValue
+    : roomTypes[0]?.code || "";
+  $("#roomTypeOptions").innerHTML = roomTypes.map(type => `
+    <label class="room-type-option-label"><input type="checkbox" class="room-type-option" value="${escapeHtml(type.code)}" ${type.code === selectedType ? "checked" : ""}> ${escapeHtml(type.name)}</label>
+  `).join("");
+  $("#roomType").value = selectedType;
+}
+
 function getSelectedRoomType() {
   const selected = $$(".room-type-option").filter((checkbox) => checkbox.checked);
-  const value = selected[0]?.value || $("#roomType").value || "single";
+  const value = selected[0]?.value || $("#roomType").value || roomTypes[0]?.code || "";
   $("#roomType").value = value;
   return value;
 }
 
-$$(".room-type-option").forEach((checkbox) => {
-  checkbox.addEventListener("change", () => {
-    if (!checkbox.checked) {
-      $("#roomType").value = "";
-      return;
-    }
+$("#roomTypeOptions").addEventListener("change", event => {
+  const checkbox = event.target.closest(".room-type-option");
+  if (!checkbox) return;
 
-    $$(".room-type-option").forEach((item) => {
-      if (item !== checkbox) item.checked = false;
-    });
-    syncRoomTypeSelection(checkbox.value);
-  });
+  if (!checkbox.checked) {
+    $("#roomType").value = "";
+    return;
+  }
+
+  syncRoomTypeSelection(checkbox.value);
 });
 
 function openRoomModal(room = null) {
@@ -854,20 +927,21 @@ function openRoomModal(room = null) {
   $("#roomImageFileName").textContent = "Chưa chọn ảnh";
   $("#roomId").value = room?.id || "";
   $("#roomModalTitle").textContent = room ? "Cập nhật phòng" : "Thêm phòng";
+  renderRoomTypeOptions(room?.room_type || roomTypes[0]?.code);
 
   if (room) {
     $("#roomCode").value = room.code;
     $("#roomName").value = room.name;
     $("#roomDescription").value = room.description || "";
     $("#roomImage").value = room.image_url || "";
-    syncRoomTypeSelection(room.room_type || "single");
+    syncRoomTypeSelection(room.room_type || roomTypes[0]?.code);
     $("#roomFloor").value = room.floor;
     $("#roomPrice").value = room.price;
     $("#roomStatus").value = room.status;
   } else {
     $("#roomFloor").value = 1;
     $("#roomPrice").value = 1000000;
-    syncRoomTypeSelection("single");
+    syncRoomTypeSelection(roomTypes[0]?.code);
     $("#roomStatus").value = "available";
   }
 
@@ -924,6 +998,41 @@ $("#roomForm").addEventListener("submit", async (event) => {
     $("#roomImageFileName").textContent = "Chưa chọn ảnh";
     closeModal("roomModal");
     toast(data.message);
+    await loadAll();
+  }
+});
+
+function openRoomTypeModal(roomType = null) {
+  $("#roomTypeForm").reset();
+  $("#roomTypeMessage").textContent = "";
+  editingRoomTypeCode = roomType?.code || null;
+  $("#roomTypeCode").value = roomType?.code || "";
+  $("#roomTypeCode").readOnly = false;
+  $("#roomTypeName").value = roomType?.name || "";
+  $("#roomTypeModalTitle").textContent = roomType ? "Cập nhật thể loại phòng" : "Thêm thể loại phòng";
+  $("#roomTypeSubmit").textContent = roomType ? "Lưu thay đổi" : "Lưu thể loại";
+  openModal("roomTypeModal");
+}
+
+$("#openRoomTypeForm").addEventListener("click", () => openRoomTypeModal());
+
+$("#roomTypeForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  const endpoint = editingRoomTypeCode
+    ? `/api/room-types/${encodeURIComponent(editingRoomTypeCode)}`
+    : "/api/room-types";
+  const { response, data } = await api(endpoint, {
+    method: editingRoomTypeCode ? "PUT" : "POST",
+    body: JSON.stringify({
+      code: $("#roomTypeCode").value,
+      name: $("#roomTypeName").value,
+    }),
+  });
+
+  message($("#roomTypeMessage"), data.message || "", response.ok);
+  if (response.ok) {
+    closeModal("roomTypeModal");
+    toast(data.message || "Thêm thể loại phòng thành công.");
     await loadAll();
   }
 });

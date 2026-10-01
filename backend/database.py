@@ -60,8 +60,7 @@ class Database:
                     name TEXT NOT NULL,
                     description TEXT,
                     image_url TEXT,
-                    room_type TEXT NOT NULL
-                        CHECK(room_type IN ('single', 'double', 'vip')),
+                    room_type TEXT NOT NULL,
                     price REAL NOT NULL DEFAULT 0,
                     status TEXT NOT NULL DEFAULT 'available'
                         CHECK(status IN ('available', 'occupied', 'cleaning', 'maintenance')),
@@ -70,6 +69,57 @@ class Database:
                     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+
+            room_table_sql = connection.execute(
+                "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'rooms'"
+            ).fetchone()["sql"]
+            normalized_room_sql = " ".join(room_table_sql.lower().split())
+            if "check(room_type in ('single', 'double', 'vip'))" in normalized_room_sql:
+                connection.execute("PRAGMA foreign_keys = OFF")
+                connection.execute("""
+                    CREATE TABLE rooms_migrated (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        code TEXT NOT NULL UNIQUE,
+                        name TEXT NOT NULL,
+                        description TEXT,
+                        image_url TEXT,
+                        room_type TEXT NOT NULL,
+                        price REAL NOT NULL DEFAULT 0,
+                        status TEXT NOT NULL DEFAULT 'available'
+                            CHECK(status IN ('available', 'occupied', 'cleaning', 'maintenance')),
+                        floor INTEGER NOT NULL DEFAULT 1,
+                        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                connection.execute("""
+                    INSERT INTO rooms_migrated(
+                        id, code, name, description, image_url, room_type,
+                        price, status, floor, created_at, updated_at
+                    )
+                    SELECT id, code, name, description, image_url, room_type,
+                           price, status, floor, created_at, updated_at
+                    FROM rooms
+                """)
+                connection.execute("DROP TABLE rooms")
+                connection.execute("ALTER TABLE rooms_migrated RENAME TO rooms")
+                connection.execute("PRAGMA foreign_keys = ON")
+
+            room_types_table_exists = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'room_types'"
+            ).fetchone() is not None
+            connection.execute("""
+                CREATE TABLE IF NOT EXISTS room_types (
+                    code TEXT PRIMARY KEY COLLATE NOCASE,
+                    name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            if not room_types_table_exists:
+                connection.executemany(
+                    "INSERT INTO room_types(code, name) VALUES (?, ?)",
+                    [("single", "Phòng đơn"), ("double", "Phòng đôi"), ("vip", "Phòng VIP")],
+                )
 
             connection.execute("""
                 CREATE TABLE IF NOT EXISTS customers (
@@ -196,3 +246,4 @@ class Database:
                         ("BK-2056", "Lê Thu Hà", 5, "2026-09-28", "2026-09-30", 9000000, "checked_in"),
                     ],
                 )
+        connection.close()
