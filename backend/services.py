@@ -711,6 +711,45 @@ class BookingService:
 
         return [dict(row) for row in rows]
 
+    def checkout_room(self, room_id: int) -> tuple[bool, str]:
+        try:
+            room_id = int(room_id)
+        except (TypeError, ValueError):
+            return False, "Phòng không hợp lệ."
+
+        with self.database.connect() as connection:
+            room = connection.execute(
+                "SELECT id, status FROM rooms WHERE id = ?",
+                (room_id,),
+            ).fetchone()
+            if room is None or room["status"] != "occupied":
+                return False, "Chỉ có thể trả phòng đang có khách."
+
+            active_bookings = connection.execute(
+                """
+                SELECT id
+                FROM bookings
+                WHERE room_id = ?
+                  AND status IN ('booked', 'checked_in')
+                ORDER BY id DESC
+                """,
+                (room_id,),
+            ).fetchall()
+
+            if not active_bookings:
+                return False, "Không tìm thấy đơn đặt phòng đang hoạt động của phòng này."
+
+            connection.execute(
+                "UPDATE bookings SET status = 'checked_out' WHERE room_id = ? AND status IN ('booked', 'checked_in')",
+                (room_id,),
+            )
+            connection.execute(
+                "UPDATE rooms SET status = 'available', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (room_id,),
+            )
+
+        return True, "Trả phòng thành công. Phòng đã trở về trạng thái trống."
+
     def create_booking(self, payload: dict[str, Any]):
         customer = str(payload.get("customer_name", "")).strip()
         room_id = payload.get("room_id")

@@ -732,6 +732,7 @@ function renderRoomList() {
         <td><span class="room-list-status ${escapeHtml(room.status)}">${escapeHtml(statusLabel)}</span></td>
         <td><div class="room-list-actions">
           <button class="mini-button" data-room-view="${room.id}">Xem</button>
+          ${room.status === "occupied" ? `<button class="mini-button success" data-checkout="${room.id}">Trả phòng</button>` : ""}
           <button class="mini-button" data-edit="${room.id}">Sửa</button>
           <button class="mini-button danger" data-delete="${room.id}" ${room.status !== "available" ? "disabled" : ""}>Xóa</button>
         </div></td>
@@ -764,6 +765,17 @@ async function deleteRoom(roomId) {
     await loadAll();
   } else {
     toast(data.message || "Không thể xóa phòng.");
+  }
+}
+
+async function checkoutRoom(roomId) {
+  if (!confirm("Xác nhận khách đã trả phòng và phòng đang được vệ sinh?")) return;
+  const { response, data } = await api(`/api/rooms/${roomId}/checkout`, { method: "POST" });
+  if (response.ok) {
+    toast(data.message || "Trả phòng thành công.");
+    await loadAll();
+  } else {
+    toast(data.message || "Không thể trả phòng.");
   }
 }
 
@@ -810,6 +822,7 @@ function roomCardMarkup(room, showDetails = false) {
   <div class="room-footer"><span class="room-type">${escapeHtml(room.room_type_name || (room.room_type || "").toUpperCase())} · Tầng ${escapeHtml(room.floor)}</span></div>
       <div class="room-actions">
         ${showDetails ? `<button class="mini-button" data-room-view="${room.id}">Xem</button>` : ""}
+        ${room.status === "occupied" ? `<button class="mini-button success" data-checkout="${room.id}">Trả phòng</button>` : ""}
         <button class="mini-button" data-edit="${room.id}">Cập nhật</button>
         <button class="mini-button danger" data-delete="${room.id}" ${room.status !== "available" ? "disabled" : ""}>Xóa</button>
       </div>
@@ -824,13 +837,15 @@ function handleRoomCardAction(event) {
   const viewButton = event.target.closest("[data-room-view]");
   const editButton = event.target.closest("[data-edit]");
   const deleteButton = event.target.closest("[data-delete]");
-  const roomId = Number(viewButton?.dataset.roomView || editButton?.dataset.edit || deleteButton?.dataset.delete);
+  const checkoutButton = event.target.closest("[data-checkout]");
+  const roomId = Number(viewButton?.dataset.roomView || editButton?.dataset.edit || deleteButton?.dataset.delete || checkoutButton?.dataset.checkout);
   if (!roomId) return;
   const room = rooms.find(item => item.id === roomId);
   if (!room) return;
   if (viewButton) openRoomDetails(room);
   if (editButton) openRoomModal(room);
   if (deleteButton && !deleteButton.disabled) deleteRoom(roomId);
+  if (checkoutButton) checkoutRoom(roomId);
 }
 
 function renderRooms() {

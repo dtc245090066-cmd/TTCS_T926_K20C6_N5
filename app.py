@@ -281,6 +281,15 @@ def delete_room(room_id):
     return jsonify({"ok": ok, "message": message}), 200 if ok else 400
 
 
+@app.post("/api/rooms/<int:room_id>/checkout")
+def checkout_room(room_id):
+    if not login_required():
+        return jsonify({"ok": False, "message": "Vui lòng đăng nhập."}), 401
+
+    ok, message = booking_service.checkout_room(room_id)
+    return jsonify({"ok": ok, "message": message}), 200 if ok else 400
+
+
 @app.get("/api/bookings")
 def get_bookings():
     if not login_required():
