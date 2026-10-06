@@ -210,6 +210,65 @@ $("#topProfileBtn").addEventListener("click", async () => {
   openModal("profileModal");
 });
 
+function preparePasswordModal() {
+  $("#passwordForm").reset();
+  $("#passwordMessage").textContent = "";
+  const loggedIn = !!document.getElementById("dashboardView") && !document.getElementById("dashboardView").classList.contains("hidden");
+  const emailRow = document.getElementById("passwordEmailRow");
+  const emailInput = document.getElementById("passwordEmail");
+
+  if (loggedIn) {
+    emailRow.style.display = "none";
+    emailInput.value = "";
+  } else {
+    emailRow.style.display = "block";
+    const loginEmail = $("#loginEmail").value.trim();
+    emailInput.value = loginEmail;
+  }
+
+  $("#verificationCode").value = "";
+}
+
+async function sendPasswordVerificationCode() {
+  const loggedIn = !!document.getElementById("dashboardView") && !document.getElementById("dashboardView").classList.contains("hidden");
+  const email = loggedIn ? $("#profileEmail").value.trim() || $("#loginEmail").value.trim() : $("#passwordEmail").value.trim();
+
+  if (!email) {
+    message($("#passwordMessage"), "Vui lòng nhập email để nhận mã xác minh.");
+    return;
+  }
+
+  const { response, data } = await api("/api/profile/password/request-code", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+
+  message($("#passwordMessage"), data.message || "", response.ok);
+
+  if (data.debug_code) {
+    $("#verificationCode").value = data.debug_code;
+    $("#verificationCode").focus();
+  }
+}
+
+$("#changePasswordBtn").addEventListener("click", () => {
+  preparePasswordModal();
+  openModal("passwordModal");
+});
+
+$("#openPasswordModalBtn").addEventListener("click", () => {
+  preparePasswordModal();
+  closeModal("profileModal");
+  openModal("passwordModal");
+});
+
+$("#openPasswordModalFromLogin").addEventListener("click", () => {
+  preparePasswordModal();
+  openModal("passwordModal");
+});
+
+$("#sendVerificationCodeBtn").addEventListener("click", sendPasswordVerificationCode);
+
 $("#logoutBtn").addEventListener("click", async () => {
   await api("/api/logout", { method: "POST" });
   showLogin();
@@ -271,6 +330,68 @@ $("#profileForm").addEventListener("submit", async (event) => {
     closeModal("profileModal");
     toast(data.message || "Cập nhật thành công");
     await loadAll();
+  }
+});
+
+$("#passwordForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const currentPassword = $("#currentPassword").value;
+  const newPassword = $("#newPassword").value;
+  const confirmPassword = $("#confirmPassword").value;
+  const verificationCode = $("#verificationCode").value.trim();
+  const loggedIn = !!document.getElementById("dashboardView") && !document.getElementById("dashboardView").classList.contains("hidden");
+  const email = $("#passwordEmail").value.trim() || ($("#profileEmail") ? $("#profileEmail").value.trim() : "");
+
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    message($("#passwordMessage"), "Vui lòng nhập đầy đủ các trường bắt buộc.");
+    return;
+  }
+
+  if (!loggedIn && !email) {
+    message($("#passwordMessage"), "Vui lòng nhập email để xác thực tài khoản.");
+    return;
+  }
+
+  if (!verificationCode || verificationCode.length !== 6) {
+    message($("#passwordMessage"), "Vui lòng nhập mã xác minh 6 chữ số đã gửi qua email.");
+    return;
+  }
+
+  if (newPassword.length < 8 || newPassword.length > 128) {
+    message($("#passwordMessage"), "Mật khẩu mới phải có từ 8 đến 128 ký tự.");
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    message($("#passwordMessage"), "Mật khẩu xác nhận không khớp.");
+    return;
+  }
+
+  const payload = {
+    current_password: currentPassword,
+    new_password: newPassword,
+    confirm_password: confirmPassword,
+    verification_code: verificationCode,
+  };
+
+  if (!loggedIn) {
+    payload.email = email;
+  } else {
+    payload.email = $("#profileEmail").value.trim();
+  }
+
+  const { response, data } = await api("/api/profile/password", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+  message($("#passwordMessage"), data.message || "", response.ok);
+
+  if (response.ok) {
+    $("#passwordForm").reset();
+    closeModal("passwordModal");
+    toast(data.message || "Cập nhật mật khẩu thành công");
   }
 });
 

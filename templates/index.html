@@ -51,7 +51,7 @@
 
         <div class="login-meta">
           <label class="remember-row"><input type="checkbox" checked> Ghi nhớ đăng nhập</label>
-          <button type="button" class="text-link">Quên mật khẩu?</button>
+          <button type="button" class="text-link" id="openPasswordModalFromLogin">Đổi mật khẩu</button>
         </div>
 
         <button class="primary-btn wide" type="submit">Đăng nhập hệ thống →</button>
@@ -110,6 +110,7 @@
         <button class="top-avatar" id="topProfileBtn" title="Mở hồ sơ người dùng" aria-label="Mở hồ sơ người dùng"><span id="topUserInitials">LH</span></button>
         <div class="profile-info"><strong id="userName">Admin</strong><small id="userRole">Quản lý</small></div>
         <button class="icon-btn" id="profileBtn" title="Cập nhật hồ sơ">✎</button>
+        <button class="icon-btn" id="changePasswordBtn" title="Đổi mật khẩu">🔒</button>
         <button class="icon-btn" id="logoutBtn" title="Đăng xuất">↪</button>
       </div>
       <span class="hidden" id="profileAvatarBadge">LH</span>
@@ -353,7 +354,30 @@
         <img id="profileAvatarPreview" src="" alt="Ảnh đại diện" onerror="this.style.display='none'">
       </div>
       <p id="profileMessage" class="form-message"></p>
+      <div class="profile-extra-actions">
+        <button type="button" class="text-link" id="openPasswordModalBtn">Đổi mật khẩu</button>
+      </div>
       <div class="form-actions"><button type="button" class="ghost-btn" data-close="profileModal">Hủy</button><button class="primary-btn">Lưu thay đổi</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal" id="passwordModal">
+  <div class="modal-box">
+    <button class="modal-close" data-close="passwordModal">×</button>
+    <span class="section-label">BẢO MẬT</span>
+    <h3>Đổi mật khẩu</h3>
+    <form id="passwordForm">
+      <label id="passwordEmailRow">Email<input id="passwordEmail" type="email" placeholder="Nhập email tài khoản"></label>
+      <div class="two">
+        <label>Mã xác minh<input id="verificationCode" type="text" maxlength="6" placeholder="Nhập 6 chữ số"></label>
+        <button type="button" class="ghost-btn" id="sendVerificationCodeBtn">Gửi mã xác minh</button>
+      </div>
+      <label>Mật khẩu hiện tại<input id="currentPassword" type="password" required placeholder="Nhập mật khẩu hiện tại"></label>
+      <label>Mật khẩu mới<input id="newPassword" type="password" required minlength="8" placeholder="Nhập mật khẩu mới"></label>
+      <label>Xác nhận mật khẩu mới<input id="confirmPassword" type="password" required minlength="8" placeholder="Nhập lại mật khẩu mới"></label>
+      <p id="passwordMessage" class="form-message"></p>
+      <div class="form-actions"><button type="button" class="ghost-btn" data-close="passwordModal">Hủy</button><button class="primary-btn">Cập nhật mật khẩu</button></div>
     </form>
   </div>
 </div>
