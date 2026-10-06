@@ -183,6 +183,12 @@
 
     <section class="dashboard-section" data-view-panel="room-list">
       <div class="section-page-head"><div><span class="section-label">QUẢN LÝ PHÒNG</span><h2>Danh sách phòng</h2><p>Quản lý thông tin các phòng trong khách sạn.</p></div></div>
+      <div class="room-status-summary room-list-status-summary" aria-label="Số lượng phòng theo trạng thái" aria-live="polite">
+        <div class="room-status-count available"><span class="room-status-indicator" aria-hidden="true"></span><span>Phòng trống</span><strong id="roomListAvailableCount">0</strong></div>
+        <div class="room-status-count occupied"><span class="room-status-indicator" aria-hidden="true"></span><span>Đang ở</span><strong id="roomListOccupiedCount">0</strong></div>
+        <div class="room-status-count cleaning"><span class="room-status-indicator" aria-hidden="true"></span><span>Đang dọn</span><strong id="roomListCleaningCount">0</strong></div>
+        <div class="room-status-count maintenance"><span class="room-status-indicator" aria-hidden="true"></span><span>Bảo trì</span><strong id="roomListMaintenanceCount">0</strong></div>
+      </div>
       <div class="room-list-toolbar">
         <div class="room-list-tools">
           <label class="room-list-search"><span>⌕</span><input id="roomListSearch" type="search" placeholder="Tìm phòng..." aria-label="Tìm theo mã, tên hoặc loại phòng"></label>

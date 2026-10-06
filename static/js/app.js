@@ -712,6 +712,20 @@ $("#reservationsCalendar").addEventListener("click", event => {
 });
 
 function renderRoomList() {
+  const roomCounts = {
+    available: 0,
+    occupied: 0,
+    cleaning: 0,
+    maintenance: 0,
+  };
+  rooms.forEach(room => {
+    if (Object.prototype.hasOwnProperty.call(roomCounts, room.status)) roomCounts[room.status] += 1;
+  });
+  $("#roomListAvailableCount").textContent = roomCounts.available;
+  $("#roomListOccupiedCount").textContent = roomCounts.occupied;
+  $("#roomListCleaningCount").textContent = roomCounts.cleaning;
+  $("#roomListMaintenanceCount").textContent = roomCounts.maintenance;
+
   const query = $("#roomListSearch").value.trim().toLowerCase();
   const filtered = rooms.filter(room => {
     const matchesStatus = roomListFilter === "all" || room.status === roomListFilter;
