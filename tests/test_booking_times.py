@@ -2,6 +2,7 @@ import os
 import sqlite3
 import tempfile
 import unittest
+from datetime import datetime, timedelta
 
 from backend.database import Database
 from backend.services import BookingService
@@ -52,6 +53,69 @@ class BookingServiceTimeTests(unittest.TestCase):
 
         self.assertFalse(ok)
         self.assertIn("Giờ", message)
+        self.assertIsNone(booking)
+
+    def test_hourly_rental_total_is_validated(self):
+        room = self.database.connect().execute("SELECT * FROM rooms WHERE status = 'available' LIMIT 1").fetchone()
+        self.database.connect().close()
+
+        ok, message, booking = self.service.create_booking({
+            "customer_name": "Hourly Guest",
+            "room_id": room["id"],
+            "check_in": "2026-10-10",
+            "check_out": "2026-10-10",
+            "check_in_time": "09:00",
+            "check_out_time": "12:00",
+            "total": 1000000,
+        })
+
+        self.assertTrue(ok, message)
+        self.assertAlmostEqual(float(booking["total"]), float(room["price"]) * 0.125, places=2)
+
+    def test_past_checkout_is_rejected(self):
+        with self.database.connect() as connection:
+            room = connection.execute(
+                "SELECT id FROM rooms WHERE status = 'available' LIMIT 1"
+            ).fetchone()
+
+        start = datetime.now() - timedelta(hours=4)
+        end = datetime.now() - timedelta(hours=2)
+        ok, message, booking = self.service.create_booking({
+            "customer_name": "Past Guest",
+            "room_id": room["id"],
+            "check_in": start.date().isoformat(),
+            "check_out": end.date().isoformat(),
+            "check_in_time": start.strftime("%H:%M"),
+            "check_out_time": end.strftime("%H:%M"),
+        })
+
+        self.assertFalse(ok)
+        self.assertEqual(message, "Thời gian trả phòng không được trong quá khứ.")
+        self.assertIsNone(booking)
+
+    def test_non_positive_room_price_is_rejected(self):
+        with self.database.connect() as connection:
+            room = connection.execute(
+                "SELECT id FROM rooms WHERE status = 'available' LIMIT 1"
+            ).fetchone()
+            connection.execute(
+                "UPDATE rooms SET price = 0 WHERE id = ?",
+                (room["id"],),
+            )
+
+        start = datetime.now() + timedelta(minutes=5)
+        end = start + timedelta(hours=3)
+        ok, message, booking = self.service.create_booking({
+            "customer_name": "Free Guest",
+            "room_id": room["id"],
+            "check_in": start.date().isoformat(),
+            "check_out": end.date().isoformat(),
+            "check_in_time": start.strftime("%H:%M"),
+            "check_out_time": end.strftime("%H:%M"),
+        })
+
+        self.assertFalse(ok)
+        self.assertEqual(message, "Giá phòng không hợp lệ.")
         self.assertIsNone(booking)
 
     def test_existing_booking_table_gets_time_columns(self):

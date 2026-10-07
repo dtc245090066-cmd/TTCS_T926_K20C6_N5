@@ -13,9 +13,9 @@
 .main:has([data-view-panel="overview"].active){padding-top:6px}
 .main:has([data-view-panel="overview"].active) .topbar{margin-bottom:0}
 .main:has([data-view-panel="overview"].active) .section-page-head{margin-top:0}
-.main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active, [data-view-panel="room-types"].active){padding-top:6px}
-.main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active, [data-view-panel="room-types"].active) .topbar{margin-bottom:0}
-.main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active, [data-view-panel="room-types"].active) .section-page-head{margin-top:0}
+.main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active, [data-view-panel="room-types"].active, [data-view-panel="checkout"].active){padding-top:6px}
+.main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active, [data-view-panel="room-types"].active, [data-view-panel="checkout"].active) .topbar{margin-bottom:0}
+.main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active, [data-view-panel="room-types"].active, [data-view-panel="checkout"].active) .section-page-head{margin-top:0}
 .stats-grid{margin-bottom:12px}
 .frontdesk-arrivals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0 0 18px}
 .frontdesk-arrivals>div{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:54px;padding:10px 15px;border:1px solid var(--line);border-radius:11px;background:var(--paper)}
@@ -122,12 +122,50 @@
 .room-list-actions{display:flex;gap:5px}
 .room-list-actions .mini-button{flex:0 0 auto;min-width:40px;padding:6px 8px}
 .room-actions .mini-button,.room-list-actions .mini-button{font-size:13px;font-weight:700}
+.room-actions [data-rent],.room-actions [data-checkout],.room-actions [data-edit],.room-actions [data-delete],.room-list-actions [data-rent],.room-list-actions [data-checkout],.room-list-actions [data-edit],.room-list-actions [data-delete]{transition:all .25s ease;cursor:pointer}
+.room-actions [data-rent],.room-list-actions [data-rent]{border-color:#2d7d4b;background:#2d7d4b;color:#fff}
+.room-actions [data-rent]:not(:disabled):hover,.room-list-actions [data-rent]:not(:disabled):hover{border-color:#174b2d;background:#174b2d;color:#fff;transform:translateY(-3px) scale(1.02);box-shadow:0 8px 18px rgba(23,75,45,.38)}
+.room-actions [data-checkout],.room-list-actions [data-checkout]{min-height:36px;padding:8px 12px;border-color:#c62828;background:#c62828;color:#fff}
+.room-actions [data-checkout]:not(:disabled):hover,.room-list-actions [data-checkout]:not(:disabled):hover{border-color:#8f1717;background:#8f1717;color:#fff;transform:translateY(-3px) scale(1.02);box-shadow:0 8px 18px rgba(143,23,23,.4)}
 .room-actions [data-edit],.room-list-actions [data-edit],[data-room-type-edit]{border-color:#2869a5;background:#2869a5;color:#fff}
-.room-actions [data-edit]:hover,.room-list-actions [data-edit]:hover,[data-room-type-edit]:hover{border-color:#1e5486;background:#1e5486;color:#fff}
+.room-actions [data-edit]:not(:disabled):hover,.room-list-actions [data-edit]:not(:disabled):hover{border-color:#17436f;background:#17436f;color:#fff;transform:translateY(-3px) scale(1.02);box-shadow:0 8px 18px rgba(23,67,111,.38)}
 .room-actions [data-delete],.room-list-actions [data-delete],.room-actions [data-room-type-delete]{border-color:#a93434;background:#a93434;color:#fff}
-.room-actions [data-delete]:hover,.room-list-actions [data-delete]:hover,.room-actions [data-room-type-delete]:hover{border-color:#862727;background:#862727;color:#fff}
+.room-actions [data-delete]:not(:disabled):hover,.room-list-actions [data-delete]:not(:disabled):hover{border-color:#741b1b;background:#741b1b;color:#fff;transform:translateY(-3px) scale(1.02);box-shadow:0 8px 18px rgba(116,27,27,.42)}
+.room-actions [data-rent]:not(:disabled):active,.room-actions [data-checkout]:not(:disabled):active,.room-actions [data-edit]:not(:disabled):active,.room-actions [data-delete]:not(:disabled):active,.room-list-actions [data-rent]:not(:disabled):active,.room-list-actions [data-checkout]:not(:disabled):active,.room-list-actions [data-edit]:not(:disabled):active,.room-list-actions [data-delete]:not(:disabled):active{transform:translateY(-1px) scale(.99);box-shadow:0 2px 5px rgba(30,25,20,.24)}
+.room-actions [data-rent]:disabled,.room-actions [data-checkout]:disabled,.room-actions [data-edit]:disabled,.room-actions [data-delete]:disabled,.room-list-actions [data-rent]:disabled,.room-list-actions [data-checkout]:disabled,.room-list-actions [data-edit]:disabled,.room-list-actions [data-delete]:disabled{cursor:not-allowed}
 .room-list-actions .mini-button:disabled{opacity:.45;cursor:not-allowed}
 .room-list-empty{text-align:center!important;color:var(--muted)!important;padding:30px!important}
+.checkout-filters{margin:2px 0 16px}
+.checkout-search{display:flex;align-items:center;gap:11px;width:min(340px,100%);min-height:46px;margin:0 0 16px auto;padding:0 13px;border:1px solid var(--line);border-radius:12px;background:var(--paper);color:var(--muted);box-shadow:0 4px 14px rgba(66,45,28,.035);transition:border-color .2s ease,box-shadow .2s ease}
+.checkout-search:focus-within{border-color:#c69b5d;box-shadow:0 0 0 3px rgba(198,155,93,.14)}
+.checkout-search svg{width:18px;height:18px;flex:0 0 18px;fill:none;stroke:currentColor;stroke-linecap:round;stroke-width:1.8}
+.checkout-search input{width:100%;min-width:0;height:44px;padding:0;border:0;outline:0;background:transparent;color:var(--ink);font-size:12px}
+.checkout-search input::placeholder{color:#a69d94}
+.checkout-search input::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
+.checkout-search button{display:grid;place-items:center;width:28px;height:28px;flex:0 0 28px;padding:0;border:0;border-radius:50%;background:transparent;color:#81766c;font-size:22px;line-height:1;cursor:pointer}
+.checkout-search button:hover{background:#f1ebe3;color:var(--brown)}
+.checkout-search button[hidden]{display:none}
+.checkout-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.checkout-card{overflow:hidden;border:1px solid var(--line);border-radius:18px;background:var(--paper);box-shadow:0 8px 24px rgba(66,45,28,.055)}
+.checkout-card-header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 15px 0}
+.checkout-card-header>div{display:flex;align-items:baseline;gap:8px}
+.checkout-card-header>div .section-label{font-size:8px}
+.checkout-card-header>div>strong{font-size:13px;color:var(--ink)}
+.checkout-status{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:20px;background:#fff0e7;color:#b6532e;font-size:10px;font-weight:700;white-space:nowrap}
+.checkout-status i{width:7px;height:7px;border-radius:50%;background:#d7653d}
+.checkout-card>img{display:block;width:100%;height:145px;margin-top:11px;object-fit:cover}
+.checkout-card-body{padding:13px 15px 15px}
+.checkout-card-body h3{margin:0;color:var(--ink);font-family:"Playfair Display",serif;font-size:17px}
+.checkout-room-type{margin:4px 0 12px;color:var(--muted);font-size:10px}
+.checkout-details{display:grid;gap:0;margin:0}
+.checkout-details>div,.checkout-prices>div{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid #f0eae3}
+.checkout-details dt,.checkout-prices span{color:var(--muted);font-size:10px}
+.checkout-details dd{margin:0;color:var(--ink);font-size:10px;font-weight:700;text-align:right}
+.checkout-prices{margin-top:3px}
+.checkout-prices strong{color:var(--brown);font-size:11px;text-align:right}
+.checkout-card-body>[data-checkout]{width:100%;min-height:38px;margin-top:10px;border-color:#c62828;background:#c62828;color:#fff;font-size:11px;font-weight:700;transition:all .22s ease}
+.checkout-card-body>[data-checkout]:hover{border-color:#941d1d;background:#941d1d;color:#fff;transform:translateY(-2px);box-shadow:0 7px 16px rgba(148,29,29,.25)}
+.checkout-card-body>[data-checkout]:active{transform:translateY(0) scale(.98)}
 .room-card{position:relative;border-color:var(--line);background:var(--paper);box-shadow:0 8px 24px rgba(66,45,28,.055)}
 .room-card::before{position:absolute;inset:0 auto 0 0;width:6px;border-radius:18px 0 0 18px;background:#b8afa5;content:"";z-index:2}
 .room-card-available::before{background:#2e7d32}
@@ -151,6 +189,7 @@
 .room-card .room-stay-times span{font-size:12px}
 .room-card .room-stay-times strong{font-size:12px}
 .room-card .room-actions .mini-button{font-size:14px;padding:9px 8px}
+.room-card .room-actions [data-checkout]{min-height:40px;padding:10px 12px}
 .room-card .room-footer{justify-content:flex-start;padding:3px 14px 11px}
 .room-stay-times{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:0 14px 11px}
 .room-stay-times>div{display:flex;align-items:center;justify-content:space-between;gap:5px;min-width:0;padding:6px 8px;border:1px solid rgba(104,75,59,.12);border-radius:7px;background:rgba(255,255,255,.58)}
@@ -165,6 +204,17 @@
 .room-details-grid span{color:var(--muted);font-size:9px}
 .room-details-grid strong{font-size:12px}
 .room-details-description{margin:12px 0 0;color:var(--muted);font-size:11px;line-height:1.5}
+.booking-room-summary{display:grid;grid-template-columns:88px minmax(0,1fr);gap:10px 13px;margin:14px 0;padding:12px;border:1px solid var(--line);border-radius:11px;background:#fbf8f3}
+.booking-room-thumb{display:grid;grid-row:span 2;place-items:center;width:88px;height:76px;overflow:hidden;border-radius:8px;background:#eee6dc;color:var(--brown);font-size:24px}
+.booking-room-thumb img{width:100%;height:100%;object-fit:cover}
+.booking-room-meta{display:grid;align-content:center;gap:4px;min-width:0}
+.booking-room-meta>span,.booking-room-meta small{color:var(--muted);font-size:11px}
+.booking-room-meta strong{overflow-wrap:anywhere;font-size:14px}
+.booking-room-details{display:grid;grid-column:1/-1;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 12px}
+.booking-room-details>span{display:flex;justify-content:space-between;gap:8px;color:var(--muted);font-size:11px}
+.booking-room-details strong{color:var(--ink);text-align:right}
+.booking-room-description{grid-column:1/-1;margin:0;color:var(--muted);font-size:11px;line-height:1.5}
+#bookingCheckOutError:not(:empty){margin-top:-6px}
 #profileModal{padding-top:var(--navbar-height)}
 .profile-modal-box{max-height:calc(100vh - var(--navbar-height) - 24px);max-height:calc(100dvh - var(--navbar-height) - 24px);overflow-y:auto;overscroll-behavior:contain}
 #passwordModal .modal-box{max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow-y:auto;overscroll-behavior:contain}
@@ -190,14 +240,18 @@
 }
 
 @media(min-width:901px) and (max-width:1150px){
-  .rooms-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .rooms-grid,.checkout-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+@media(min-width:701px) and (max-width:900px){
+  .checkout-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 
 @media(max-width:700px){
   .main{padding:16px 13px 18px}
   .topbar{flex-direction:column;align-items:stretch;gap:13px;margin-bottom:16px}
-  .main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active, [data-view-panel="room-types"].active){padding-top:10px}
-  .main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active, [data-view-panel="room-types"].active) .topbar{margin-bottom:6px}
+  .main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active, [data-view-panel="room-types"].active, [data-view-panel="checkout"].active){padding-top:10px}
+  .main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active, [data-view-panel="room-types"].active, [data-view-panel="checkout"].active) .topbar{margin-bottom:6px}
   .top-actions{display:grid;grid-template-columns:minmax(0,1fr) 38px 38px;gap:8px;justify-content:stretch}
   .topbar .search{grid-column:1 / -1;width:100%;height:40px}
   .topbar .notification{grid-column:2;grid-row:2}
@@ -221,70 +275,144 @@
   .room-list-search{width:100%}
   .room-list-tools .primary-btn{width:100%}
   .room-list-filters{gap:5px}
+  .checkout-grid{grid-template-columns:minmax(0,1fr);gap:12px}
+  .checkout-card>img{height:175px}
+  .checkout-card-body{padding:12px}
   .hero{min-height:260px}
 }
 
 .toast.toast-centered{top:50%;right:auto;bottom:auto;left:50%;min-width:min(360px,calc(100vw - 32px));padding:22px 30px;border-radius:14px;font-size:18px;font-weight:700;text-align:center;transform:translate(-50%,-50%) scale(.94);box-shadow:0 18px 60px rgba(0,0,0,.24);z-index:1000}
 .toast.toast-centered.show{transform:translate(-50%,-50%) scale(1)}
 
-:root{--navbar-height:84px}
-.app-shell{display:block;min-height:100vh}
-#sidebar.navbar{position:fixed;inset:0 0 auto;z-index:100;width:100%;height:var(--navbar-height);padding:0 28px;display:flex;flex-direction:row;align-items:center;gap:clamp(14px,2vw,30px);overflow:visible;border-bottom:1px solid #453a33;background:#29221e;color:#eee7dd;transform:none;transition:none}
-.navbar .brand{flex:0 0 auto;gap:10px;padding:0;white-space:nowrap}
-.navbar .brand-mark{width:44px;height:44px;border-radius:11px;font-size:28px}
-.navbar .brand-name{font-size:24px;letter-spacing:0}
-.navbar .brand-sub{margin-top:2px;font-size:8px;letter-spacing:1.6px}
-.navbar .nav{display:flex;flex:1;align-items:center;gap:5px;min-width:0;margin:0;overflow:visible}
+:root{--navbar-height:0px}
+.app-shell{display:flex;min-height:100vh}
+#sidebar.navbar{position:fixed;inset:0 auto 0 0;z-index:100;width:250px;height:100vh;padding:26px 18px;display:flex;flex-direction:column;align-items:stretch;gap:0;overflow-y:auto;border-right:1px solid #453a33;background:#29221e;color:#eee7dd}
+.navbar .brand{flex:0 0 auto;gap:11px;padding:2px 8px 26px;white-space:nowrap}
+.navbar .brand-mark{width:40px;height:40px;border-radius:13px;font-size:22px}
+.navbar .brand-name{font-size:22px;letter-spacing:0}
+.navbar .brand-sub{margin-top:1px;font-size:9px;letter-spacing:1.8px}
+.navbar .nav{display:grid;flex:0 0 auto;align-items:stretch;gap:0;min-width:0;margin:0;overflow:visible}
 .navbar .nav-label{display:none}
 .navbar .nav-booking-group,.navbar .nav-room-group{position:relative;display:grid;flex:0 0 auto}
-.navbar .nav-item{height:46px;margin:0;padding:0 14px;font-size:13px;white-space:nowrap}
-.navbar .nav-item.active{box-shadow:inset 0 -3px #d5a967}
-.navbar .nav-item span{font-size:15px}
-.navbar .badge{margin-left:4px}
-.navbar .nav-submenu{position:absolute;top:calc(100% + 9px);left:0;z-index:110;min-width:230px;padding:7px;border:1px solid #4b3e35;border-radius:9px;background:#352c27;box-shadow:0 12px 28px rgba(25,18,14,.22)}
-.navbar .nav-subitem{min-height:36px;padding:8px 10px;border:0;border-radius:6px;color:#d0c4b8;font-size:11px}
-.navbar .nav-subitem:hover,.navbar .nav-subitem.active{background:#40342c;color:#f4d39e}
+.navbar .nav-item{width:100%;height:auto;min-height:44px;margin:3px 0;padding:12px 13px;font-size:12px;white-space:normal}
+.navbar .nav-item.active{box-shadow:inset 3px 0 #d5a967}
+.navbar .nav-item span{font-size:16px}
+.navbar .badge{margin-left:auto}
+.navbar .nav-submenu{position:static;min-width:0;padding:2px 0 5px 30px;border:0;border-radius:0;background:transparent;box-shadow:none}
+.navbar .nav-subitem{width:100%;min-height:32px;padding:6px 9px;border-radius:0;color:#b9afa7;font-size:10px}
+.navbar .nav-subitem:hover,.navbar .nav-subitem.active{background:#352c27;color:#f4d39e}
 .navbar .nav-subitem.active{box-shadow:inset 2px 0 #d5a967}
-.navbar-actions{display:flex;flex:0 0 auto;align-items:center;gap:13px;margin-left:auto}
-.navbar .notification{width:44px;height:44px;color:#eee7dd;background:transparent;border-color:#594b40}
-.navbar .profile{display:flex;align-items:center;gap:9px;padding:0;border:0;white-space:nowrap}
-.navbar .profile-info{min-width:74px}
-.navbar .profile-info strong{max-width:112px;overflow:hidden;color:#fff;font-size:12px;text-overflow:ellipsis;white-space:nowrap}
-.navbar .profile-info small{color:#aa9e93;font-size:10px}
-.navbar .profile .icon-btn{width:32px;height:36px;color:#e8ddd2;font-size:18px}
+.navbar-actions{display:flex;flex:0 0 auto;flex-direction:column;align-items:stretch;gap:10px;margin: auto 0 0}
+.navbar .notification{align-self:flex-start;width:40px;height:40px;color:#eee7dd;background:transparent;border-color:#594b40}
+.navbar .profile{display:flex;align-items:center;gap:8px;padding:15px 4px 0;border-top:1px solid #413731;white-space:normal}
+.navbar .profile-info{flex:1;min-width:0}
+.navbar .profile-info strong{max-width:100%;overflow:hidden;color:#fff;font-size:11px;text-overflow:ellipsis;white-space:nowrap}
+.navbar .profile-info small{color:#aa9e93;font-size:9px}
+.navbar .profile .icon-btn{width:26px;height:32px;padding:0;color:#e8ddd2;font-size:16px}
 .navbar .profile .icon-btn:hover{color:#e1bc7e}
-.navbar .top-avatar{width:42px;height:42px;flex:0 0 42px}
-.app-shell>.main{width:100%;margin:var(--navbar-height) 0 0;padding-right:34px;padding-left:34px}
+.navbar .top-avatar{width:36px;height:36px;flex:0 0 36px}
+.app-shell>.main{width:calc(100% - 250px);margin:0 0 0 250px;padding-right:34px;padding-left:34px}
 
 @media(max-width:1050px){
-  #sidebar.navbar{gap:14px;padding-right:20px;padding-left:20px}
-  .navbar .brand-name{font-size:21px}
-  .navbar .nav{gap:3px}
-  .navbar .nav-item{padding:0 9px;font-size:11px}
-  .navbar-actions{gap:8px}
-  .navbar .profile{gap:7px}
+  #sidebar.navbar{padding-right:14px;padding-left:14px}
   .app-shell>.main{padding-right:22px;padding-left:22px}
 }
 
 @media(max-width:850px){
+  #sidebar.navbar{width:76px;padding:18px 9px}
+  .navbar .brand{justify-content:center;padding:0 0 20px}
+  .navbar .brand>div:not(.brand-mark){display:none}
+  .navbar .nav{gap:3px}
+  .navbar .nav-item{justify-content:center;gap:0;padding:12px 8px;font-size:0}
+  .navbar .nav-item>span:first-child{font-size:16px}
+  .navbar .nav-item .booking-caret,.navbar .badge{display:none}
+  .navbar .nav-booking-group,.navbar .nav-room-group{position:relative}
+  .navbar .nav-submenu{position:absolute;top:0;left:calc(100% - 1px);z-index:110;min-width:210px;padding:7px;border:1px solid #4b3e35;border-radius:9px;background:#352c27;box-shadow:0 12px 28px rgba(25,18,14,.22)}
+  .navbar .nav-subitem{min-height:36px;padding:8px 10px;border:0;border-radius:6px;color:#d0c4b8;font-size:11px}
+  .navbar .nav-subitem:hover,.navbar .nav-subitem.active{background:#40342c;color:#f4d39e}
+  .navbar-actions{align-items:center;gap:7px}
+  .navbar .profile{flex-direction:column;gap:4px;padding:12px 0 0}
   .navbar .profile-info{display:none}
+  .navbar .profile .icon-btn{width:38px;height:34px;font-size:17px}
+  .app-shell>.main{width:calc(100% - 76px);margin-left:76px;padding-right:16px;padding-left:16px}
 }
 
 @media(max-width:700px){
-  :root{--navbar-height:124px}
-  #sidebar.navbar{height:var(--navbar-height);padding:9px 13px;flex-wrap:wrap;align-content:center;gap:5px 12px}
-  .navbar .brand{order:1}
-  .navbar .brand-mark{width:36px;height:36px;font-size:23px}
-  .navbar .brand-name{font-size:19px}
-  .navbar .brand-sub{font-size:7px}
-  .navbar-actions{order:2;gap:7px}
-  .navbar .notification{width:38px;height:38px}
-  .navbar .top-avatar{width:38px;height:38px;flex-basis:38px}
-  .navbar .profile .icon-btn{width:29px;height:34px}
-  .navbar .nav{order:3;flex:0 0 100%;width:100%;gap:5px;overflow-x:auto;scrollbar-width:none}
-  .navbar .nav::-webkit-scrollbar{display:none}
-  .navbar .nav-item{height:40px;padding:0 11px;font-size:11px}
-  .navbar .nav-item span{font-size:13px}
-  .navbar .nav-submenu{top:calc(100% + 5px);min-width:205px}
-  .app-shell>.main{padding-right:13px;padding-left:13px}
+  .app-shell>.main{padding-right:12px;padding-left:12px}
 }
+
+.modal{padding:16px;overflow:hidden;overscroll-behavior:contain}
+.modal-box{width:min(600px,100%);max-height:90vh;max-height:90dvh;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;padding:clamp(18px,2vw,26px)}
+.modal-box h3{font-size:24px;margin:5px 0 14px}
+.modal-box label{margin:10px 0}
+.modal-box input,.modal-box select,.modal-box textarea{min-height:46px;padding:9px 12px}
+.profile-modal-box,#passwordModal .modal-box{max-height:90vh;max-height:90dvh}
+#bookingModal .modal-box{width:min(560px,100%);padding:20px 22px}
+#bookingModal .modal-box label{margin:8px 0}
+#bookingModal .booking-room-summary{gap:8px 11px;margin:10px 0;padding:10px}
+#bookingModal .booking-room-thumb{width:76px;height:64px}
+#bookingModal .modal-box .form-actions{position:sticky;bottom:-20px;z-index:2;margin:8px -22px -20px;padding:10px 22px 14px;background:var(--paper);box-shadow:0 -8px 16px rgba(63,42,25,.06)}
+
+@media(min-width:701px) and (max-width:850px){
+  .modal-box,#bookingModal .modal-box{width:90vw}
+}
+
+@media(max-width:700px){
+  .modal{padding:10px}
+  .modal-box{width:100%;max-height:calc(90vh - 20px);max-height:calc(90dvh - 20px);padding:18px}
+  #passwordModal .modal-box{max-height:calc(90vh - 20px);max-height:calc(90dvh - 20px)}
+  .modal-box h3{font-size:22px;margin-bottom:12px}
+  .modal-box .two{grid-template-columns:minmax(0,1fr)}
+  .modal-box .form-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .modal-box .form-actions button{width:100%;min-width:0;min-height:46px;padding:10px}
+  #profileModal{padding:10px}
+  .profile-modal-box{max-height:calc(90vh - 20px);max-height:calc(90dvh - 20px)}
+  #bookingModal .modal-box{width:100%;padding:16px}
+  #bookingModal .modal-box .form-actions{bottom:-16px;margin:8px -16px -16px;padding:9px 16px 12px}
+  .booking-room-summary{grid-template-columns:68px minmax(0,1fr);gap:8px 10px;margin:8px 0;padding:9px}
+  .booking-room-thumb{width:68px;height:58px}
+  .booking-room-details{gap:6px 9px}
+  .booking-room-details>span{font-size:10px}
+  .booking-room-description{font-size:10px}
+  .auth-shell{align-items:start;min-height:100vh;min-height:100svh;padding:14px 12px}
+  .auth-card{width:100%;min-height:0;padding:24px 18px;border-radius:16px}
+  .auth-card h1{font-size:40px}
+}
+
+@media(max-width:400px){
+  .modal{padding:8px}
+  .modal-box{max-height:calc(90vh - 16px);max-height:calc(90dvh - 16px);padding:15px}
+  #passwordModal .modal-box{max-height:calc(90vh - 16px);max-height:calc(90dvh - 16px)}
+  #profileModal{padding:8px}
+  .profile-modal-box{max-height:calc(90vh - 16px);max-height:calc(90dvh - 16px)}
+  #bookingModal .modal-box{padding:14px}
+  #bookingModal .modal-box .form-actions{bottom:-14px;margin:8px -14px -14px;padding:8px 14px 10px}
+  .booking-room-details{grid-template-columns:minmax(0,1fr)}
+  .auth-card{padding:20px 15px}
+  .auth-card h1{font-size:36px}
+}
+
+.checkout-confirmation[hidden]{display:none}
+.checkout-confirmation{position:fixed;inset:0;z-index:1200;display:grid;place-items:center;padding:20px;background:rgba(22,18,15,.55);backdrop-filter:blur(3px);animation:checkout-overlay-in .2s ease both}
+.checkout-confirmation-card{position:relative;width:min(440px,100%);max-height:calc(100vh - 40px);max-height:calc(100dvh - 40px);overflow-y:auto;padding:32px;border:1px solid rgba(104,75,59,.12);border-radius:18px;background:var(--paper);box-shadow:0 24px 70px rgba(25,18,14,.3);text-align:center;animation:checkout-card-in .24s ease both}
+.checkout-confirmation-close{position:absolute;top:13px;right:14px;display:grid;place-items:center;width:34px;height:34px;border:1px solid var(--line);border-radius:50%;background:#f7f2eb;color:#74675d;font-size:22px;line-height:1;cursor:pointer;transition:background .2s ease,color .2s ease,transform .2s ease}
+.checkout-confirmation-close:hover{transform:rotate(90deg);background:#eee5da;color:var(--ink)}
+.checkout-confirmation-icon{display:grid;place-items:center;width:58px;height:58px;margin:0 auto 16px;border-radius:50%;background:#ffebee;color:#c62828}
+.checkout-confirmation-icon svg{width:31px;height:31px;fill:currentColor}
+.checkout-confirmation-card .section-label{display:block;margin-bottom:7px}
+.checkout-confirmation-card h3{margin:0;color:var(--ink);font-family:"Playfair Display",serif;font-size:25px}
+.checkout-confirmation-card>p{margin:13px 0 0;color:#594f47;font-size:15px;line-height:1.55}
+.checkout-confirmation-card>p strong{color:#342a24}
+.checkout-confirmation-card .checkout-confirmation-note{margin-top:7px;color:var(--muted);font-size:12px}
+.checkout-confirmation-actions{display:grid;grid-template-columns:1fr 1.45fr;gap:10px;margin-top:24px}
+.checkout-confirmation-actions button{min-height:46px;padding:10px 14px;border:1px solid transparent;border-radius:10px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all .22s ease}
+.checkout-confirmation-cancel{border-color:#ded8d1!important;background:#f2f0ed;color:#625b55}
+.checkout-confirmation-cancel:hover{border-color:#c9c1b8!important;background:#e6e2dd;transform:translateY(-2px);box-shadow:0 6px 14px rgba(58,48,39,.12)}
+.checkout-confirmation-submit{background:#c62828;color:#fff}
+.checkout-confirmation-submit:hover{background:#941d1d;transform:translateY(-2px);box-shadow:0 7px 16px rgba(148,29,29,.3)}
+.checkout-confirmation-actions button:active{transform:translateY(0) scale(.98)}
+.checkout-confirmation-actions button:focus-visible,.checkout-confirmation-close:focus-visible{outline:3px solid rgba(198,40,40,.3);outline-offset:3px}
+@keyframes checkout-overlay-in{from{opacity:0}to{opacity:1}}
+@keyframes checkout-card-in{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+@media(max-width:480px){.checkout-confirmation{padding:16px}.checkout-confirmation-card{padding:28px 20px 20px;border-radius:16px}.checkout-confirmation-card h3{font-size:22px}.checkout-confirmation-card>p{font-size:14px}.checkout-confirmation-actions{grid-template-columns:1fr 1.35fr;gap:8px}.checkout-confirmation-actions button{padding:9px 8px;font-size:12px}}
+@media(prefers-reduced-motion:reduce){.checkout-confirmation,.checkout-confirmation-card{animation:none}.checkout-confirmation-actions button,.checkout-confirmation-close{transition:none}}

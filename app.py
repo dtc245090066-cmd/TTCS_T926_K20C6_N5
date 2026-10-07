@@ -274,6 +274,18 @@ def update_room(room_id):
     return jsonify({"ok": ok, "message": message, "room": room}), 200 if ok else 400
 
 
+@app.post("/api/rooms/<int:room_id>/checkout")
+def checkout_room(room_id):
+    if not login_required():
+        return jsonify({"ok": False, "message": "Vui lòng đăng nhập."}), 401
+
+    ok, message, room = room_service.checkout_room(room_id)
+    if ok:
+        return jsonify({"ok": True, "message": message, "room": room}), 200
+    status_code = 404 if message == "Phòng không tồn tại." else 409
+    return jsonify({"ok": False, "message": message}), status_code
+
+
 @app.delete("/api/rooms/<int:room_id>")
 def delete_room(room_id):
     if not login_required():

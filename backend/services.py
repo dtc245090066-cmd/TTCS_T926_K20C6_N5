@@ -592,6 +592,38 @@ class RoomService:
 
         return True, "Cập nhật phòng thành công.", self._serialize_room(room)
 
+    def checkout_room(self, room_id: int):
+        with self.database.connect() as connection:
+            result = connection.execute(
+                """
+                UPDATE rooms
+                SET status = 'available', updated_at = CURRENT_TIMESTAMP
+                WHERE id = ? AND status = 'occupied'
+                """,
+                (room_id,),
+            )
+            if result.rowcount:
+                room = connection.execute(
+                    """
+                    SELECT rooms.*, room_types.code AS assigned_type_code,
+                        room_types.name AS room_type_name
+                    FROM rooms
+                    LEFT JOIN room_types ON room_types.id = rooms.room_type_id
+                    WHERE rooms.id = ?
+                    """,
+                    (room_id,),
+                ).fetchone()
+                return True, "Trả phòng thành công!", self._serialize_room(room)
+
+            room = connection.execute(
+                "SELECT id FROM rooms WHERE id = ?",
+                (room_id,),
+            ).fetchone()
+            if room is None:
+                return False, "Phòng không tồn tại.", None
+
+        return False, "Phòng này không thể trả phòng.", None
+
     def delete_room(self, room_id: int):
         with self.database.connect() as connection:
             room = connection.execute(
@@ -740,6 +772,7 @@ class BookingService:
         check_out = str(payload.get("check_out", "")).strip()
         check_in_time = str(payload.get("check_in_time", "")).strip() or None
         check_out_time = str(payload.get("check_out_time", "")).strip() or None
+        requested_total = payload.get("total")
 
         if not customer:
             return False, "Vui lòng nhập tên khách hàng.", None
@@ -751,18 +784,31 @@ class BookingService:
         except (TypeError, ValueError):
             return False, "Thông tin đặt phòng không hợp lệ.", None
 
-        if end <= start:
-            return False, "Ngày check-out phải sau ngày check-in.", None
+        if end < start:
+            return False, "Ngày trả phòng phải sau hoặc bằng ngày nhận phòng.", None
 
         if bool(check_in_time) != bool(check_out_time):
-            return False, "Vui lòng nhập đầy đủ giờ check-in và check-out.", None
+            return False, "Vui lòng nhập đầy đủ giờ nhận phòng và giờ trả phòng.", None
 
         time_pattern = r"(?:[01]\d|2[0-3]):[0-5]\d"
         if check_in_time and (
             not re.fullmatch(time_pattern, check_in_time)
             or not re.fullmatch(time_pattern, check_out_time)
         ):
-            return False, "Giờ check-in hoặc check-out không hợp lệ.", None
+            return False, "Giờ nhận phòng hoặc giờ trả phòng không hợp lệ.", None
+
+        if end == start and (check_in_time is None or check_out_time is None):
+            return False, "Vui lòng chọn đầy đủ giờ thuê phòng.", None
+
+        if check_in_time and check_out_time:
+            start_dt = datetime.strptime(f"{check_in} {check_in_time}", "%Y-%m-%d %H:%M")
+            end_dt = datetime.strptime(f"{check_out} {check_out_time}", "%Y-%m-%d %H:%M")
+            if end_dt <= start_dt:
+                return False, "Giờ trả phòng phải sau giờ nhận phòng.", None
+            if end_dt <= datetime.now():
+                return False, "Thời gian trả phòng không được trong quá khứ.", None
+        elif datetime.combine(end, datetime.min.time()) <= datetime.now():
+            return False, "Thời gian trả phòng không được trong quá khứ.", None
 
         with self.database.connect() as connection:
             room = connection.execute(
@@ -776,8 +822,35 @@ class BookingService:
             if room["status"] != "available":
                 return False, "Phòng hiện không còn trống.", None
 
-            nights = (end - start).days
-            total = nights * float(room["price"])
+            room_price = float(room["price"])
+            if not math.isfinite(room_price) or room_price <= 0:
+                return False, "Giá phòng không hợp lệ.", None
+
+            if check_in_time and check_out_time:
+                delta_hours = (datetime.strptime(f"{check_out} {check_out_time}", "%Y-%m-%d %H:%M") - datetime.strptime(f"{check_in} {check_in_time}", "%Y-%m-%d %H:%M")).total_seconds() / 3600
+                if delta_hours <= 0:
+                    return False, "Thời gian thuê phải lớn hơn 0 giờ.", None
+                computed_total = room_price * (delta_hours / 24)
+            else:
+                nights = (end - start).days
+                if nights <= 0:
+                    return False, "Thời gian thuê phải lớn hơn 0 ngày.", None
+                computed_total = nights * room_price
+
+            if not math.isfinite(computed_total) or computed_total <= 0:
+                return False, "Tổng tiền phải lớn hơn 0.", None
+
+            if requested_total is not None:
+                try:
+                    requested_total = float(requested_total)
+                    if not math.isfinite(requested_total):
+                        return False, "Giá thuê không hợp lệ.", None
+                    if requested_total < 0:
+                        return False, "Giá thuê phải lớn hơn 0.", None
+                except (TypeError, ValueError):
+                    return False, "Giá thuê không hợp lệ.", None
+
+            total = computed_total
 
             code = "BK-" + datetime.now().strftime("%m%d%H%M%S")
 
