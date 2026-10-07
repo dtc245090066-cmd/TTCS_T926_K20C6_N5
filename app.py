@@ -4,6 +4,7 @@ import os
 import uuid
 
 from flask import Flask, jsonify, render_template, request, session
+from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
 
 from backend.database import Database
@@ -11,6 +12,7 @@ from backend.services import AuthService, RoomService, RoomTypeService, BookingS
 
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(ROOT, ".env"))
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get(

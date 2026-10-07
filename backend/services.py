@@ -150,6 +150,14 @@ class AuthService:
         if not sent:
             return False, "Không thể gửi mã xác minh đến email. Vui lòng thử lại sau.", None
 
+        smtp_username = os.environ.get("SMTP_USERNAME")
+        smtp_password = os.environ.get("SMTP_PASSWORD")
+        if not smtp_username or not smtp_password:
+            return True, (
+                "Đang ở chế độ phát triển: mã xác minh đã được tạo và hiển thị trong terminal/console. "
+                "Vui lòng kiểm tra log để lấy mã xác minh."
+            ), code
+
         return True, "Mã xác minh đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư.", code
 
     def validate_password_verification_code(self, email: str, code: str | None) -> tuple[bool, str]:
@@ -270,12 +278,26 @@ PASSWORD_VERIFICATION_CODES: dict[str, dict[str, float | str]] = {}
 PASSWORD_VERIFICATION_LOCK = threading.Lock()
 
 
+def normalize_smtp_settings() -> dict[str, str]:
+    smtp_username = (os.environ.get("SMTP_USERNAME") or "").strip()
+    smtp_password = (os.environ.get("SMTP_PASSWORD") or "").replace(" ", "").strip()
+    smtp_from = (os.environ.get("SMTP_FROM") or smtp_username or "no-reply@lumihotel.local").strip()
+    return {
+        "host": (os.environ.get("SMTP_HOST") or "smtp.gmail.com").strip(),
+        "port": str(os.environ.get("SMTP_PORT") or "587").strip(),
+        "username": smtp_username,
+        "password": smtp_password,
+        "from": smtp_from,
+    }
+
+
 def send_password_verification_email(email: str, code: str) -> bool:
-    smtp_host = os.environ.get("SMTP_HOST") or "smtp.gmail.com"
-    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
-    smtp_username = os.environ.get("SMTP_USERNAME")
-    smtp_password = os.environ.get("SMTP_PASSWORD")
-    smtp_from = os.environ.get("SMTP_FROM") or smtp_username or "no-reply@lumihotel.local"
+    settings = normalize_smtp_settings()
+    smtp_host = settings["host"]
+    smtp_port = int(settings["port"])
+    smtp_username = settings["username"]
+    smtp_password = settings["password"]
+    smtp_from = settings["from"]
 
     if not smtp_username or not smtp_password:
         print(f"[DEV_EMAIL_CODE] Gửi mã xác minh đến {email}: {code}")

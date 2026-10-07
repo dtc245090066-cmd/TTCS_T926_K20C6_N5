@@ -3,7 +3,7 @@ import tempfile
 import unittest
 
 from backend.database import Database
-from backend.services import AuthService
+from backend.services import AuthService, normalize_smtp_settings
 
 
 class AuthServiceProfileTests(unittest.TestCase):
@@ -104,6 +104,25 @@ class AuthServiceProfileTests(unittest.TestCase):
 
         self.assertTrue(ok, message)
         self.assertIsNotNone(self.service.login("alice@example.com", "VerifiedPass777!"))
+
+    def test_request_password_change_code_explains_dev_mode_when_smtp_not_configured(self):
+        ok, message, verification_code = self.service.request_password_change_code("alice@example.com")
+
+        self.assertTrue(ok, message)
+        self.assertTrue(verification_code and verification_code.isdigit() and len(verification_code) == 6)
+        self.assertIn("phát triển", message.lower())
+
+    def test_normalize_smtp_settings_removes_spaces_from_app_password(self):
+        original_password = os.environ.get("SMTP_PASSWORD")
+        os.environ["SMTP_PASSWORD"] = "jvrv vpmc jhfy qycv"
+        try:
+            settings = normalize_smtp_settings()
+            self.assertEqual(settings["password"], "jvrvvpmcjhfyqycv")
+        finally:
+            if original_password is None:
+                os.environ.pop("SMTP_PASSWORD", None)
+            else:
+                os.environ["SMTP_PASSWORD"] = original_password
 
 
 if __name__ == "__main__":
