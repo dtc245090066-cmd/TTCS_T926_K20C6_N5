@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v='gold-ambient-20261008-4') }}">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -18,7 +18,7 @@
     <div id="loginPanel" class="login-panel">
       <div class="card-header">
         <div class="brand auth-brand">
-          <div class="brand-mark">L</div>
+          <div class="brand-mark" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M15 9h20v4h-4v21H19v-4h8V13h-8v23h-4z"/><path d="M15 36h16l-5 4H15z"/></svg></div>
           <div>
             <div class="brand-name">Lumi<span>Hotel</span></div>
             <div class="brand-sub">HOTEL &amp; RESORTS</div>
@@ -83,25 +83,25 @@
   <header class="sidebar navbar" id="sidebar">
     <div class="brand">
       <div class="brand-mark">L</div>
-      <div><div class="brand-name">Lumi<span>Hotel</span></div><div class="brand-sub">Hotel management</div></div>
+      <div><div class="brand-name">Lumi<span>Hotel</span></div><div class="brand-sub">HOTEL MANAGEMENT</div></div>
     </div>
 
     <nav class="nav">
-      <button class="nav-item active" data-view="overview" title="Tổng quan"><span>⌂</span>Tổng quan</button>
+      <button class="nav-item active" data-view="overview" title="Tổng quan"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg></span><span class="nav-label-text">Tổng quan</span><span class="nav-chevron" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg></span></button>
       <div class="nav-room-group">
-        <button class="nav-item" data-view="rooms" aria-expanded="false" title="Sơ đồ phòng"><span>▦</span>Sơ đồ phòng<span class="booking-caret" aria-hidden="true">⌄</span></button>
+        <button class="nav-item" data-view="rooms" aria-expanded="false" title="Quản lý phòng"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 5v14M3 15h18v4M3 11h7a4 4 0 0 1 4 4M14 11h3a4 4 0 0 1 4 4"/><path d="M7 8h3v3H7z"/></svg></span><span class="nav-label-text">Quản lý phòng</span><span class="nav-chevron" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg></span></button>
         <div class="nav-submenu" aria-label="Chức năng phòng">
           <button class="nav-subitem" data-room-subview="room-list"><span>▤</span>Danh sách phòng</button>
           <button class="nav-subitem" data-room-subview="room-types"><span>▦</span>Danh sách thể loại phòng</button>
         </div>
       </div>
-      <button class="nav-item" data-view="checkout" title="Trả phòng"><span>↪</span>Trả phòng<b class="badge" id="checkoutBadge">0</b></button>
+      <button class="nav-item" data-view="checkout" title="Trả phòng"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8M10 12h11m-5-5 5 5-5 5"/></svg></span><span class="nav-label-text">Trả phòng</span><b class="badge" id="checkoutBadge">0</b><span class="nav-chevron" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg></span></button>
     </nav>
 
     <div class="navbar-actions">
       <button class="icon-btn notification" title="Thông báo" aria-label="Thông báo">♢<i></i></button>
       <div class="profile">
-        <button class="top-avatar" id="topProfileBtn" title="Mở hồ sơ người dùng" aria-label="Mở hồ sơ người dùng"><span id="topUserInitials">LH</span></button>
+        <button class="top-avatar" id="topProfileBtn" title="Mở hồ sơ người dùng" aria-label="Mở hồ sơ người dùng"><img id="topUserAvatar" alt="" hidden><span id="topUserInitials">LH</span></button>
         <div class="profile-info"><strong id="userName">Admin</strong><small id="userRole">Quản lý</small></div>
         <button class="icon-btn" id="profileBtn" title="Cập nhật hồ sơ">✎</button>
         <button class="icon-btn" id="changePasswordBtn" title="Đổi mật khẩu">🔒</button>
@@ -161,13 +161,34 @@
     </section>
 
     <section class="dashboard-section" data-view-panel="rooms">
-      <div class="section-page-head"><div><span class="section-label">QUẢN LÝ PHÒNG</span><h2>Sơ đồ phòng</h2><p>CRUD phòng được xử lý qua <b>RoomService</b> và SQLite.</p></div><button class="primary-btn" id="openRoomForm">＋ Thêm phòng</button></div>
-      <div class="filter-group"><button class="chip active" data-filter="all">Tất cả</button><button class="chip" data-filter="available">Trống</button><button class="chip" data-filter="occupied">Đang ở</button><button class="chip" data-filter="cleaning">Đang dọn</button><button class="chip" data-filter="maintenance">Bảo trì</button></div>
+      <div class="section-page-head"><div><span class="section-label">QUẢN LÝ PHÒNG</span><h2>Quản lý phòng</h2></div><button class="primary-btn" id="openRoomForm">＋ Thêm phòng</button></div>
+      <div class="room-status-summary room-management-status-summary" role="group" aria-label="Lọc phòng theo trạng thái">
+        <button class="room-status-filter active" data-filter="all" aria-pressed="true">
+          <span class="room-status-filter-label"><span class="room-status-indicator" aria-hidden="true"></span>Tất cả</span>
+          <strong data-room-status-count="all">0</strong><small>phòng</small>
+        </button>
+        <button class="room-status-filter available" data-filter="available" aria-pressed="false">
+          <span class="room-status-filter-label"><span class="room-status-indicator" aria-hidden="true"></span>Trống</span>
+          <strong data-room-status-count="available">0</strong><small>phòng</small>
+        </button>
+        <button class="room-status-filter occupied" data-filter="occupied" aria-pressed="false">
+          <span class="room-status-filter-label"><span class="room-status-indicator" aria-hidden="true"></span>Đang ở</span>
+          <strong data-room-status-count="occupied">0</strong><small>phòng</small>
+        </button>
+        <button class="room-status-filter cleaning" data-filter="cleaning" aria-pressed="false">
+          <span class="room-status-filter-label"><span class="room-status-indicator" aria-hidden="true"></span>Đang dọn</span>
+          <strong data-room-status-count="cleaning">0</strong><small>phòng</small>
+        </button>
+        <button class="room-status-filter maintenance" data-filter="maintenance" aria-pressed="false">
+          <span class="room-status-filter-label"><span class="room-status-indicator" aria-hidden="true"></span>Bảo trì</span>
+          <strong data-room-status-count="maintenance">0</strong><small>phòng</small>
+        </button>
+      </div>
       <div class="rooms-grid" id="roomsGrid"></div>
     </section>
 
     <section class="dashboard-section" data-view-panel="room-list">
-      <div class="section-page-head"><div><span class="section-label">QUẢN LÝ PHÒNG</span><h2>Danh sách phòng</h2><p>Quản lý thông tin các phòng trong khách sạn.</p></div></div>
+      <div class="section-page-head"><div><span class="section-label">QUẢN LÝ PHÒNG</span><h2>Danh sách phòng</h2></div></div>
       <div class="room-status-summary room-list-status-summary" aria-label="Số lượng phòng theo trạng thái" aria-live="polite">
         <div class="room-status-count available"><span class="room-status-indicator" aria-hidden="true"></span><span>Phòng trống</span><strong id="roomListAvailableCount">0</strong></div>
         <div class="room-status-count occupied"><span class="room-status-indicator" aria-hidden="true"></span><span>Đang ở</span><strong id="roomListOccupiedCount">0</strong></div>
@@ -192,7 +213,7 @@
 
     <section class="dashboard-section" data-view-panel="room-types">
       <div class="section-page-head">
-        <div><span class="section-label">DANH MỤC PHÒNG</span><h2>Quản lý loại phòng</h2><p>Danh mục loại phòng được sử dụng khi khai báo phòng.</p></div>
+        <div><span class="section-label">DANH MỤC PHÒNG</span><h2>Quản lý loại phòng</h2></div>
         <button class="primary-btn" id="openRoomTypeForm">＋ Thêm loại phòng</button>
       </div>
       <div class="panel room-list-panel"><div class="table-scroll"><table class="room-list-table room-types-table">
@@ -203,7 +224,7 @@
 
     <section class="dashboard-section" data-view-panel="checkout">
       <div class="section-page-head">
-        <div><span class="section-label">LỄ TÂN / TRẢ PHÒNG</span><h2>Danh sách trả phòng</h2><p>Quản lý các phòng khách đang ở và cần thực hiện trả phòng.</p></div>
+        <div><span class="section-label">LỄ TÂN / TRẢ PHÒNG</span><h2>Danh sách trả phòng</h2></div>
       </div>
       <div class="filter-group checkout-filters" role="group" aria-label="Lọc danh sách trả phòng">
         <button class="chip active" data-checkout-filter="all">Tất cả</button>

@@ -110,6 +110,39 @@ function setUserDisplay(user) {
 
   $("#profileAvatarBadge").textContent = initials;
   $("#topUserInitials").textContent = initials;
+
+  const avatarImage = $("#topUserAvatar");
+  const avatarInitials = $("#topUserInitials");
+  const avatarUrl = typeof user.avatar_url === "string" ? user.avatar_url.trim() : "";
+  let displayAvatarUrl = "";
+
+  if (avatarUrl) {
+    try {
+      const url = new URL(avatarUrl, window.location.href);
+      url.searchParams.set("v", Date.now().toString());
+      displayAvatarUrl = url.toString();
+    } catch {
+      displayAvatarUrl = "";
+    }
+  }
+
+  if (displayAvatarUrl) {
+    avatarImage.dataset.avatarUrl = avatarUrl;
+    avatarImage.onerror = () => {
+      if (avatarImage.dataset.avatarUrl !== avatarUrl) return;
+      avatarImage.hidden = true;
+      avatarInitials.hidden = false;
+    };
+    avatarInitials.hidden = true;
+    avatarImage.hidden = false;
+    avatarImage.src = displayAvatarUrl;
+  } else {
+    avatarImage.onerror = null;
+    avatarImage.removeAttribute("src");
+    avatarImage.dataset.avatarUrl = "";
+    avatarImage.hidden = true;
+    avatarInitials.hidden = false;
+  }
 }
 
 function showDashboard(user) {
@@ -839,6 +872,24 @@ async function checkoutRoom(room) {
 }
 
 function renderRooms() {
+  const roomCounts = Object.fromEntries(
+    Object.keys(statusMap).map(status => [status, 0])
+  );
+  rooms.forEach(room => {
+    if (Object.prototype.hasOwnProperty.call(roomCounts, room.status)) {
+      roomCounts[room.status] += 1;
+    }
+  });
+  $$("[data-room-status-count]").forEach(count => {
+    const status = count.dataset.roomStatusCount;
+    count.textContent = status === "all" ? rooms.length : roomCounts[status] ?? 0;
+  });
+  $$("[data-filter]").forEach(button => {
+    const active = button.dataset.filter === currentFilter;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+
   const filtered = currentFilter === "all"
     ? rooms
     : rooms.filter(room => room.status === currentFilter);
@@ -1156,10 +1207,8 @@ $("#roomTypeForm").addEventListener("submit", async event => {
   }
 });
 
-$$(".chip").forEach(button => {
+$$("[data-filter]").forEach(button => {
   button.addEventListener("click", () => {
-    $$(".chip").forEach(x => x.classList.remove("active"));
-    button.classList.add("active");
     currentFilter = button.dataset.filter;
     renderRooms();
   });
