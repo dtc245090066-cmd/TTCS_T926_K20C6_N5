@@ -54,6 +54,32 @@ class Database:
                     )
 
             connection.execute("""
+                CREATE TABLE IF NOT EXISTS room_types (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    code TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                    name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                    description TEXT NOT NULL DEFAULT '',
+                    price REAL NOT NULL DEFAULT 0,
+                    max_guests INTEGER NOT NULL DEFAULT 2,
+                    status TEXT NOT NULL DEFAULT 'active'
+                        CHECK(status IN ('active', 'inactive')),
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            connection.executemany(
+                """
+                INSERT OR IGNORE INTO room_types(code, name, description, price, max_guests)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                [
+                    ("single", "Phòng đơn", "Phòng dành cho một khách.", 1000000, 1),
+                    ("double", "Phòng đôi", "Phòng dành cho hai khách.", 1500000, 2),
+                    ("vip", "Phòng VIP", "Phòng cao cấp.", 3000000, 4),
+                ],
+            )
+
+            connection.execute("""
                 CREATE TABLE IF NOT EXISTS rooms (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     code TEXT NOT NULL UNIQUE,
@@ -62,6 +88,7 @@ class Database:
                     image_url TEXT,
                     room_type TEXT NOT NULL
                         CHECK(room_type IN ('single', 'double', 'vip')),
+                    room_type_id INTEGER REFERENCES room_types(id),
                     price REAL NOT NULL DEFAULT 0,
                     status TEXT NOT NULL DEFAULT 'available'
                         CHECK(status IN ('available', 'occupied', 'cleaning', 'maintenance')),
@@ -70,6 +97,23 @@ class Database:
                     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+
+            room_columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(rooms)").fetchall()
+            }
+            if "room_type_id" not in room_columns:
+                connection.execute(
+                    "ALTER TABLE rooms ADD COLUMN room_type_id INTEGER REFERENCES room_types(id)"
+                )
+            connection.execute(
+                """
+                UPDATE rooms
+                SET room_type_id = (
+                    SELECT id FROM room_types WHERE room_types.code = rooms.room_type
+                )
+                WHERE room_type_id IS NULL
+                """
+            )
 
             connection.execute("""
                 CREATE TABLE IF NOT EXISTS customers (
@@ -90,6 +134,8 @@ class Database:
                     room_id INTEGER NOT NULL,
                     check_in TEXT NOT NULL,
                     check_out TEXT NOT NULL,
+                    check_in_time TEXT,
+                    check_out_time TEXT,
                     total REAL NOT NULL DEFAULT 0,
                     status TEXT NOT NULL DEFAULT 'booked'
                         CHECK(status IN ('booked', 'checked_in', 'checked_out', 'cancelled')),
@@ -97,6 +143,15 @@ class Database:
                     FOREIGN KEY(room_id) REFERENCES rooms(id)
                 )
             """)
+
+            booking_columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(bookings)").fetchall()
+            }
+            for column_name in ("check_in_time", "check_out_time"):
+                if column_name not in booking_columns:
+                    connection.execute(
+                        f"ALTER TABLE bookings ADD COLUMN {column_name} TEXT"
+                    )
 
             existing_user = connection.execute(
                 "SELECT id FROM users WHERE email = ?",
@@ -126,15 +181,35 @@ class Database:
                 "SELECT COUNT(*) AS total FROM rooms"
             ).fetchone()["total"]
 
-            if room_count == 0:
-                rooms = [
-                    ("101", "Deluxe Ocean View", "Phòng đôi rộng rãi, view đẹp.", "https://images.unsplash.com/photo-1566665797739-1674de7a421a?auto=format&fit=crop&w=900&q=85", "double", 1850000, "occupied", 1),
-                    ("205", "Premium King", "Phòng cao cấp với giường King.", "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=900&q=85", "double", 2350000, "available", 2),
-                    ("308", "Executive Suite", "Suite rộng, có khu vực tiếp khách.", "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=900&q=85", "vip", 3200000, "available", 3),
-                    ("412", "Standard Twin", "Hai giường đơn, phù hợp bạn bè.", "https://images.unsplash.com/photo-1591088398332-8a7791972843?auto=format&fit=crop&w=900&q=85", "double", 1250000, "cleaning", 4),
-                    ("509", "Luxury Suite", "Suite sang trọng, không gian riêng tư.", "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=900&q=85", "vip", 4500000, "occupied", 5),
-                    ("601", "Garden Deluxe", "Phòng yên tĩnh hướng vườn.", "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=900&q=85", "double", 2100000, "available", 6),
-                ]
+            rooms = [
+                ("101", "Deluxe Ocean View", "Phòng đôi rộng rãi, view đẹp.", "https://images.unsplash.com/photo-1566665797739-1674de7a421a?auto=format&fit=crop&w=900&q=85", "double", 1850000, "occupied", 1),
+                ("102", "Deluxe Garden View", "Phòng đôi hướng vườn thoáng mát.", "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=900&q=85", "double", 1950000, "available", 1),
+                ("103", "Superior Double", "Phòng đôi tiện nghi, thiết kế hiện đại.", "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=900&q=85", "double", 1550000, "available", 1),
+                ("104", "Family Twin", "Phòng hai giường phù hợp gia đình.", "https://images.unsplash.com/photo-1591088398332-8a7791972843?auto=format&fit=crop&w=900&q=85", "double", 2100000, "cleaning", 1),
+                ("105", "Standard Queen", "Phòng giường Queen ấm cúng.", "https://images.unsplash.com/photo-1566665797739-1674de7a421a?auto=format&fit=crop&w=900&q=85", "double", 1450000, "available", 1),
+                ("205", "Premium King", "Phòng cao cấp với giường King.", "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=900&q=85", "double", 2350000, "available", 2),
+                ("206", "Deluxe King", "Phòng King rộng rãi với khu vực nghỉ ngơi riêng.", "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=900&q=85", "double", 2500000, "available", 2),
+                ("207", "Premium Twin", "Phòng hai giường đơn cao cấp.", "https://images.unsplash.com/photo-1591088398332-8a7791972843?auto=format&fit=crop&w=900&q=85", "double", 2200000, "maintenance", 2),
+                ("208", "Executive Double", "Phòng đôi có bàn làm việc và khu vực tiếp khách.", "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=900&q=85", "double", 2800000, "available", 2),
+                ("308", "Executive Suite", "Suite rộng, có khu vực tiếp khách.", "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=900&q=85", "vip", 3200000, "available", 3),
+                ("309", "Junior Suite", "Suite tiện nghi với tầm nhìn thoáng.", "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=900&q=85", "vip", 3500000, "available", 3),
+                ("310", "Grand Suite", "Suite rộng với nội thất sang trọng.", "https://images.unsplash.com/photo-1566665797739-1674de7a421a?auto=format&fit=crop&w=900&q=85", "vip", 4200000, "available", 3),
+                ("311", "Royal Suite", "Suite cao cấp với không gian riêng tư.", "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=900&q=85", "vip", 5000000, "available", 3),
+                ("412", "Standard Twin", "Hai giường đơn, phù hợp bạn bè.", "https://images.unsplash.com/photo-1591088398332-8a7791972843?auto=format&fit=crop&w=900&q=85", "double", 1250000, "cleaning", 4),
+                ("413", "Premium Twin", "Phòng hai giường với tiện nghi cao cấp.", "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=900&q=85", "double", 1950000, "available", 4),
+                ("414", "Family Suite", "Suite rộng dành cho gia đình.", "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=900&q=85", "vip", 3800000, "available", 4),
+                ("509", "Luxury Suite", "Suite sang trọng, không gian riêng tư.", "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=900&q=85", "vip", 4500000, "occupied", 5),
+                ("510", "Honeymoon Suite", "Suite lãng mạn với thiết kế tinh tế.", "https://images.unsplash.com/photo-1566665797739-1674de7a421a?auto=format&fit=crop&w=900&q=85", "vip", 5200000, "available", 5),
+                ("511", "Skyline Deluxe", "Phòng cao cấp với tầm nhìn thành phố.", "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=900&q=85", "double", 2650000, "available", 5),
+                ("601", "Garden Deluxe", "Phòng yên tĩnh hướng vườn.", "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=900&q=85", "double", 2100000, "available", 6),
+            ]
+            existing_room_codes = {
+                row["code"] for row in connection.execute("SELECT code FROM rooms").fetchall()
+            }
+            rooms_to_add = [
+                room for room in rooms if room[0] not in existing_room_codes
+            ][:max(0, 20 - room_count)]
+            if rooms_to_add:
                 connection.executemany(
                     """
                     INSERT INTO rooms(
@@ -143,8 +218,18 @@ class Database:
                     )
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    rooms,
+                    rooms_to_add,
                 )
+
+            connection.execute(
+                """
+                UPDATE rooms
+                SET room_type_id = (
+                    SELECT id FROM room_types WHERE room_types.code = rooms.room_type
+                )
+                WHERE room_type_id IS NULL
+                """
+            )
 
             booking_count = connection.execute(
                 "SELECT COUNT(*) AS total FROM bookings"
@@ -165,3 +250,4 @@ class Database:
                         ("BK-2056", "Lê Thu Hà", 5, "2026-09-28", "2026-09-30", 9000000, "checked_in"),
                     ],
                 )
+        connection.close()

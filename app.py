@@ -4,13 +4,15 @@ import os
 import uuid
 
 from flask import Flask, jsonify, render_template, request, session
+from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
 
 from backend.database import Database
-from backend.services import AuthService, RoomService, BookingService, DashboardService
+from backend.services import AuthService, RoomService, RoomTypeService, BookingService, DashboardService
 
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(ROOT, ".env"))
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get(
@@ -28,6 +30,7 @@ database = Database(app.config["DATABASE_PATH"])
 
 auth_service = AuthService(database)
 room_service = RoomService(database)
+room_type_service = RoomTypeService(database)
 booking_service = BookingService(database)
 dashboard_service = DashboardService(database)
 
@@ -120,6 +123,49 @@ def update_profile():
     return jsonify({"ok": ok, "message": message, "user": profile}), 200 if ok else 400
 
 
+@app.post("/api/profile/password/request-code")
+def request_password_change_code():
+    payload = request.get_json(silent=True) or {}
+    email = str(payload.get("email", "") or "").strip().lower()
+    if login_required() and not email:
+        email = session["user"].get("email", "")
+
+    if not email:
+        return jsonify({"ok": False, "message": "Vui lòng nhập email để nhận mã xác minh."}), 400
+
+    ok, message, code = auth_service.request_password_change_code(email)
+    return jsonify({"ok": ok, "message": message, "debug_code": code}), 200 if ok else 400
+
+
+@app.post("/api/profile/password")
+def update_password():
+    payload = request.get_json(silent=True) or {}
+    email = str(payload.get("email", "") or "").strip().lower()
+    verification_code = str(payload.get("verification_code", "") or "").strip()
+
+    if login_required():
+        user_id = session["user"]["id"]
+        ok, message = auth_service.change_password(
+            user_id,
+            str(payload.get("current_password", "") or ""),
+            str(payload.get("new_password", "") or ""),
+            str(payload.get("confirm_password", "") or ""),
+            email=email or session["user"].get("email", ""),
+            verification_code=verification_code,
+        )
+        return jsonify({"ok": ok, "message": message}), 200 if ok else 400
+
+    ok, message = auth_service.change_password(
+        None,
+        str(payload.get("current_password", "") or ""),
+        str(payload.get("new_password", "") or ""),
+        str(payload.get("confirm_password", "") or ""),
+        email=email,
+        verification_code=verification_code,
+    )
+    return jsonify({"ok": ok, "message": message}), 200 if ok else 400
+
+
 @app.post("/api/profile/avatar")
 def upload_profile_avatar():
     if not login_required():
@@ -152,6 +198,40 @@ def get_rooms():
     if not login_required():
         return jsonify({"ok": False, "message": "Vui lòng đăng nhập."}), 401
     return jsonify({"ok": True, "rooms": room_service.list_rooms()})
+
+
+@app.get("/api/room-types")
+def get_room_types():
+    if not login_required():
+        return jsonify({"ok": False, "message": "Vui lòng đăng nhập."}), 401
+    active_only = request.args.get("active_only", "0") == "1"
+    return jsonify({"ok": True, "room_types": room_type_service.list_room_types(active_only)})
+
+
+@app.post("/api/room-types")
+def create_room_type():
+    if not login_required():
+        return jsonify({"ok": False, "message": "Vui lòng đăng nhập."}), 401
+    payload = request.get_json(silent=True) or {}
+    ok, message, room_type = room_type_service.create_room_type(payload)
+    return jsonify({"ok": ok, "message": message, "room_type": room_type}), 201 if ok else 400
+
+
+@app.put("/api/room-types/<int:room_type_id>")
+def update_room_type(room_type_id):
+    if not login_required():
+        return jsonify({"ok": False, "message": "Vui lòng đăng nhập."}), 401
+    payload = request.get_json(silent=True) or {}
+    ok, message, room_type = room_type_service.update_room_type(room_type_id, payload)
+    return jsonify({"ok": ok, "message": message, "room_type": room_type}), 200 if ok else 400
+
+
+@app.delete("/api/room-types/<int:room_type_id>")
+def delete_room_type(room_type_id):
+    if not login_required():
+        return jsonify({"ok": False, "message": "Vui lòng đăng nhập."}), 401
+    ok, message = room_type_service.delete_room_type(room_type_id)
+    return jsonify({"ok": ok, "message": message}), 200 if ok else 400
 
 
 @app.post("/api/rooms")
@@ -192,6 +272,18 @@ def update_room(room_id):
     payload = request.get_json(silent=True) or {}
     ok, message, room = room_service.update_room(room_id, payload)
     return jsonify({"ok": ok, "message": message, "room": room}), 200 if ok else 400
+
+
+@app.post("/api/rooms/<int:room_id>/checkout")
+def checkout_room(room_id):
+    if not login_required():
+        return jsonify({"ok": False, "message": "Vui lòng đăng nhập."}), 401
+
+    ok, message, room = room_service.checkout_room(room_id)
+    if ok:
+        return jsonify({"ok": True, "message": message, "room": room}), 200
+    status_code = 404 if message == "Phòng không tồn tại." else 409
+    return jsonify({"ok": False, "message": message}), status_code
 
 
 @app.delete("/api/rooms/<int:room_id>")
