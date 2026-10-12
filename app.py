@@ -87,12 +87,17 @@ def login():
 @app.post("/api/register")
 def register():
     payload = request.get_json(silent=True) or {}
-    ok, message = auth_service.register(
-        payload.get("full_name", ""),
-        payload.get("email", ""),
-        payload.get("password", ""),
-    )
-    return jsonify({"ok": ok, "message": message}), 201 if ok else 400
+    verification_code = str(payload.get("verification_code", "") or "").strip()
+    if verification_code:
+        ok, message = auth_service.register(payload.get("email", ""), verification_code)
+    else:
+        ok, message = auth_service.request_registration_code(
+            payload.get("full_name", ""),
+            payload.get("email", ""),
+            payload.get("password", ""),
+        )
+    status_code = 201 if ok and verification_code else 200 if ok else 400
+    return jsonify({"ok": ok, "message": message}), status_code
 
 
 @app.post("/api/logout")
@@ -144,8 +149,8 @@ def request_password_change_code():
     if not email:
         return jsonify({"ok": False, "message": "Vui lòng nhập email để nhận mã xác minh."}), 400
 
-    ok, message, code = auth_service.request_password_change_code(email)
-    return jsonify({"ok": ok, "message": message, "debug_code": code}), 200 if ok else 400
+    ok, message, _ = auth_service.request_password_change_code(email)
+    return jsonify({"ok": ok, "message": message}), 200 if ok else 400
 
 
 @app.post("/api/profile/password")

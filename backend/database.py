@@ -47,7 +47,7 @@ class Database:
             user_columns = {
                 row["name"] for row in connection.execute("PRAGMA table_info(users)").fetchall()
             }
-            for column_name in ("birth_date", "phone", "avatar_url"):
+            for column_name in ("birth_date", "phone", "avatar_url", "id_number"):
                 if column_name not in user_columns:
                     connection.execute(
                         f"ALTER TABLE users ADD COLUMN {column_name} TEXT"

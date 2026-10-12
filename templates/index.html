@@ -70,7 +70,11 @@
         <label>Họ và tên<input id="registerName" required></label>
         <label>Email<input id="registerEmail" type="email" required></label>
         <label>Mật khẩu<input id="registerPassword" type="password" minlength="8" required></label>
-        <button class="primary-btn wide" type="submit">Tạo tài khoản</button>
+        <div id="registerVerificationRow" class="hidden">
+          <label>Mã xác minh<input id="registerVerificationCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"></label>
+          <button class="link-button" id="registerResendCodeBtn" type="button">Gửi lại mã</button>
+        </div>
+        <button class="primary-btn wide" id="registerSubmitBtn" type="submit">Gửi mã xác minh</button>
       </form>
       <p id="registerMessage" class="form-message"></p>
       <button class="link-button" id="showLogin">← Quay lại đăng nhập</button>
@@ -405,7 +409,7 @@
       <label>Họ và tên<input id="profileFullName" required></label>
       <div class="two">
         <label>Ngày sinh<input id="profileBirthDate" type="date"></label>
-        <label>Email<input id="profileEmail" type="email" readonly></label>
+        <label>CCCD<input id="profileIdNumber" type="text" inputmode="numeric" pattern="[0-9]{12}" maxlength="12" placeholder="Nhập số CCCD"></label>
       </div>
       <label>Số điện thoại<input id="profilePhone" type="tel" placeholder="0909..."></label>
       <label>Ảnh đại diện

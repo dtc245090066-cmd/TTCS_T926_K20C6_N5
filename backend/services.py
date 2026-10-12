@@ -4,6 +4,7 @@ import math
 import os
 import random
 import re
+import secrets
 import smtplib
 import sqlite3
 import threading
@@ -32,7 +33,7 @@ class AuthService:
         with self.database.connect() as connection:
             user = connection.execute(
                 """
-                SELECT id, full_name, email, password_hash, role, birth_date, phone, avatar_url
+                SELECT id, full_name, email, password_hash, role, birth_date, phone, avatar_url, id_number
                 FROM users
                 WHERE LOWER(email) = ?
                 """,
@@ -49,6 +50,7 @@ class AuthService:
             "role": user["role"],
             "birth_date": user["birth_date"],
             "phone": user["phone"],
+            "id_number": user["id_number"],
             "avatar_url": user["avatar_url"],
         }
 
@@ -56,7 +58,7 @@ class AuthService:
         with self.database.connect() as connection:
             user = connection.execute(
                 """
-                SELECT id, full_name, email, role, birth_date, phone, avatar_url
+                SELECT id, full_name, email, role, birth_date, phone, avatar_url, id_number
                 FROM users
                 WHERE id = ?
                 """,
@@ -75,7 +77,7 @@ class AuthService:
         with self.database.connect() as connection:
             current = connection.execute(
                 """
-                SELECT id, full_name, email, role, birth_date, phone, avatar_url
+                SELECT id, full_name, email, role, birth_date, phone, avatar_url, id_number
                 FROM users
                 WHERE id = ?
                 """,
@@ -88,6 +90,7 @@ class AuthService:
             full_name = str(payload.get("full_name", current["full_name"] or "")).strip()
             birth_date = str(payload.get("birth_date", current["birth_date"] or "")).strip()
             phone = str(payload.get("phone", current["phone"] or "")).strip()
+            id_number = str(payload.get("id_number", current["id_number"] or "")).strip()
             avatar_url = str(payload.get("avatar_url", current["avatar_url"] or "")).strip()
 
             if not full_name or len(full_name) > 120:
@@ -102,21 +105,24 @@ class AuthService:
             if phone and len(phone) > 30:
                 return False, "Số điện thoại quá dài.", None
 
+            if id_number and not re.fullmatch(r"\d{12}", id_number):
+                return False, "CCCD phải gồm đúng 12 chữ số.", None
+
             if avatar_url and len(avatar_url) > 500:
                 return False, "Link ảnh đại diện quá dài.", None
 
             connection.execute(
                 """
                 UPDATE users
-                SET full_name = ?, birth_date = ?, phone = ?, avatar_url = ?
+                SET full_name = ?, birth_date = ?, phone = ?, id_number = ?, avatar_url = ?
                 WHERE id = ?
                 """,
-                (full_name, birth_date or None, phone or None, avatar_url or None, user_id),
+                (full_name, birth_date or None, phone or None, id_number or None, avatar_url or None, user_id),
             )
 
             updated = connection.execute(
                 """
-                SELECT id, full_name, email, role, birth_date, phone, avatar_url
+                SELECT id, full_name, email, role, birth_date, phone, avatar_url, id_number
                 FROM users
                 WHERE id = ?
                 """,
@@ -139,7 +145,7 @@ class AuthService:
         if user is None:
             return False, "Email chưa được đăng ký trong hệ thống.", None
 
-        code = f"{random.randint(100000, 999999)}"
+        code = f"{secrets.randbelow(900000) + 100000}"
         with PASSWORD_VERIFICATION_LOCK:
             PASSWORD_VERIFICATION_CODES[normalized_email] = {
                 "code": code,
@@ -148,15 +154,9 @@ class AuthService:
 
         sent = send_password_verification_email(normalized_email, code)
         if not sent:
+            with PASSWORD_VERIFICATION_LOCK:
+                PASSWORD_VERIFICATION_CODES.pop(normalized_email, None)
             return False, "Không thể gửi mã xác minh đến email. Vui lòng thử lại sau.", None
-
-        smtp_username = os.environ.get("SMTP_USERNAME")
-        smtp_password = os.environ.get("SMTP_PASSWORD")
-        if not smtp_username or not smtp_password:
-            return True, (
-                "Đang ở chế độ phát triển: mã xác minh đã được tạo và hiển thị trong terminal/console. "
-                "Vui lòng kiểm tra log để lấy mã xác minh."
-            ), code
 
         return True, "Mã xác minh đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư.", code
 
@@ -174,10 +174,9 @@ class AuthService:
             if time.time() > float(record["expires_at"]):
                 PASSWORD_VERIFICATION_CODES.pop(normalized_email, None)
                 return False, "Mã xác minh đã hết hạn. Vui lòng yêu cầu lại mã mới."
-            if str(record["code"]) != str(code).strip():
+            if not secrets.compare_digest(str(record["code"]), str(code).strip()):
                 return False, "Mã xác minh không đúng. Vui lòng kiểm tra lại email."
-
-        PASSWORD_VERIFICATION_CODES.pop(normalized_email, None)
+            PASSWORD_VERIFICATION_CODES.pop(normalized_email, None)
         return True, "Mã xác minh hợp lệ."
 
     def change_password(
@@ -243,7 +242,7 @@ class AuthService:
 
         return True, "Cập nhật mật khẩu thành công."
 
-    def register(self, full_name: str, email: str, password: str) -> tuple[bool, str]:
+    def request_registration_code(self, full_name: str, email: str, password: str) -> tuple[bool, str]:
         if not all(isinstance(value, str) for value in (full_name, email, password)):
             return False, "Thông tin đăng ký không hợp lệ."
 
@@ -259,19 +258,67 @@ class AuthService:
         if len(password) < 8 or len(password) > 128:
             return False, "Mật khẩu cần có từ 8 đến 128 ký tự."
 
-        try:
-            with self.database.connect() as connection:
-                connection.execute(
-                    """
-                    INSERT INTO users(full_name, email, password_hash, role)
-                    VALUES (?, ?, ?, 'staff')
-                    """,
-                    (full_name, email, generate_password_hash(password)),
-                )
-        except sqlite3.IntegrityError:
+        with self.database.connect() as connection:
+            existing_user = connection.execute(
+                "SELECT id FROM users WHERE LOWER(email) = ?",
+                (email,),
+            ).fetchone()
+        if existing_user is not None:
             return False, "Email này đã được đăng ký."
 
-        return True, "Tạo tài khoản thành công. Bạn có thể đăng nhập ngay."
+        code = f"{secrets.randbelow(900000) + 100000}"
+        with REGISTRATION_VERIFICATION_LOCK:
+            REGISTRATION_VERIFICATION_CODES[email] = {
+                "code": code,
+                "expires_at": time.time() + 300,
+                "full_name": full_name,
+                "password_hash": generate_password_hash(password),
+            }
+
+        if not send_registration_verification_email(email, code):
+            with REGISTRATION_VERIFICATION_LOCK:
+                REGISTRATION_VERIFICATION_CODES.pop(email, None)
+            return False, "Không thể gửi mã xác minh đến email. Vui lòng kiểm tra cấu hình SMTP."
+
+        return True, "Mã xác minh đã được gửi đến email của bạn. Mã có hiệu lực trong 5 phút."
+
+    def register(self, email: str, verification_code: str) -> tuple[bool, str]:
+        if not isinstance(email, str) or not isinstance(verification_code, str):
+            return False, "Thông tin xác minh không hợp lệ."
+        normalized_email = (email or "").strip().lower()
+        submitted_code = (verification_code or "").strip()
+        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", normalized_email):
+            return False, "Vui lòng nhập email hợp lệ."
+        if not re.fullmatch(r"\d{6}", submitted_code):
+            return False, "Vui lòng nhập mã xác minh gồm 6 chữ số."
+
+        with REGISTRATION_VERIFICATION_LOCK:
+            record = REGISTRATION_VERIFICATION_CODES.get(normalized_email)
+            if record is None:
+                return False, "Bạn chưa yêu cầu mã hoặc mã đã hết hạn. Vui lòng gửi lại mã."
+            if time.time() > float(record["expires_at"]):
+                REGISTRATION_VERIFICATION_CODES.pop(normalized_email, None)
+                return False, "Mã xác minh đã hết hạn. Vui lòng yêu cầu mã mới."
+            if not secrets.compare_digest(str(record["code"]), submitted_code):
+                return False, "Mã xác minh không đúng với email này."
+
+            try:
+                with self.database.connect() as connection:
+                    connection.execute(
+                        "INSERT INTO users(full_name, email, password_hash, role) VALUES (?, ?, ?, 'staff')",
+                        (record["full_name"], normalized_email, record["password_hash"]),
+                    )
+            except sqlite3.IntegrityError:
+                REGISTRATION_VERIFICATION_CODES.pop(normalized_email, None)
+                return False, "Email này đã được đăng ký."
+
+            REGISTRATION_VERIFICATION_CODES.pop(normalized_email, None)
+
+        return True, "Tạo tài khoản thành công. Bạn có thể đăng nhập."
+
+
+REGISTRATION_VERIFICATION_CODES: dict[str, dict[str, Any]] = {}
+REGISTRATION_VERIFICATION_LOCK = threading.Lock()
 
 
 PASSWORD_VERIFICATION_CODES: dict[str, dict[str, float | str]] = {}
@@ -279,7 +326,7 @@ PASSWORD_VERIFICATION_LOCK = threading.Lock()
 
 
 def normalize_smtp_settings() -> dict[str, str]:
-    smtp_username = (os.environ.get("SMTP_USERNAME") or "").strip()
+    smtp_username = (os.environ.get("SMTP_EMAIL") or os.environ.get("SMTP_USERNAME") or "").strip()
     smtp_password = (os.environ.get("SMTP_PASSWORD") or "").replace(" ", "").strip()
     smtp_from = (os.environ.get("SMTP_FROM") or smtp_username or "no-reply@lumihotel.local").strip()
     return {
@@ -292,6 +339,14 @@ def normalize_smtp_settings() -> dict[str, str]:
 
 
 def send_password_verification_email(email: str, code: str) -> bool:
+    return send_verification_email(email, code, "Mã xác minh đổi mật khẩu LumiHotel")
+
+
+def send_registration_verification_email(email: str, code: str) -> bool:
+    return send_verification_email(email, code, "Mã xác minh đăng ký LumiHotel")
+
+
+def send_verification_email(email: str, code: str, subject: str) -> bool:
     settings = normalize_smtp_settings()
     smtp_host = settings["host"]
     smtp_port = int(settings["port"])
@@ -300,12 +355,11 @@ def send_password_verification_email(email: str, code: str) -> bool:
     smtp_from = settings["from"]
 
     if not smtp_username or not smtp_password:
-        print(f"[DEV_EMAIL_CODE] Gửi mã xác minh đến {email}: {code}")
-        return True
+        return False
 
     try:
         message = EmailMessage()
-        message["Subject"] = "Mã xác minh đổi mật khẩu LumiHotel"
+        message["Subject"] = subject
         message["From"] = smtp_from
         message["To"] = email
         message.set_content(
@@ -317,10 +371,8 @@ def send_password_verification_email(email: str, code: str) -> bool:
             server.starttls()
             server.login(smtp_username, smtp_password)
             server.send_message(message)
-        print(f"[EMAIL_SENT] Đã gửi mã xác minh tới {email}")
         return True
-    except Exception as exc:
-        print(f"[EMAIL_ERROR] {exc}")
+    except Exception:
         return False
 
 

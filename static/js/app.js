@@ -98,6 +98,7 @@ function showLogin(error = "") {
 
 function setUserDisplay(user) {
   if (!user) return;
+  window.__lumiCurrentUser = user || null;
   const fullName = user.full_name || "Admin";
   $("#userName").textContent = fullName;
   $("#userRole").textContent = user.role === "manager" ? "Quản lý" : "Nhân viên";
@@ -164,7 +165,7 @@ async function loadProfile() {
     setUserDisplay(user);
     $("#profileFullName").value = user.full_name || "";
     $("#profileBirthDate").value = user.birth_date || "";
-    $("#profileEmail").value = user.email || "";
+    $("#profileIdNumber").value = user.id_number || "";
     $("#profilePhone").value = user.phone || "";
     $("#profileAvatar").value = user.avatar_url || "";
     selectedAvatarFile = null;
@@ -227,18 +228,53 @@ $("#registerForm").addEventListener("submit", async (event) => {
       full_name: $("#registerName").value,
       email: $("#registerEmail").value,
       password: $("#registerPassword").value,
+      verification_code: registrationCodeRequested ? $("#registerVerificationCode").value.trim() : "",
     }),
   });
+
+  if (response.ok && !registrationCodeRequested) {
+    registrationCodeRequested = true;
+    $("#registerVerificationRow").classList.remove("hidden");
+    $("#registerName").disabled = true;
+    $("#registerEmail").disabled = true;
+    $("#registerPassword").disabled = true;
+    $("#registerSubmitBtn").textContent = "Xác minh và tạo tài khoản";
+    message($("#registerMessage"), data.message || "", true);
+    toast("Đã gửi mã xác minh. Hãy kiểm tra email.");
+    return;
+  }
 
   message($("#registerMessage"), data.message || "", response.ok);
 
   if (response.ok) {
+    registrationCodeRequested = false;
     setTimeout(() => {
       registerPanel.classList.add("hidden");
       loginPanel.classList.remove("hidden");
       $("#loginEmail").value = $("#registerEmail").value;
+      $("#registerForm").reset();
+      $("#registerVerificationRow").classList.add("hidden");
+      $("#registerName").disabled = false;
+      $("#registerEmail").disabled = false;
+      $("#registerPassword").disabled = false;
+      $("#registerSubmitBtn").textContent = "Gửi mã xác minh";
     }, 700);
   }
+});
+
+let registrationCodeRequested = false;
+
+$("#registerResendCodeBtn").addEventListener("click", async () => {
+  const { response, data } = await api("/api/register", {
+    method: "POST",
+    body: JSON.stringify({
+      full_name: $("#registerName").value,
+      email: $("#registerEmail").value,
+      password: $("#registerPassword").value,
+    }),
+  });
+  message($("#registerMessage"), data.message || "", response.ok);
+  if (response.ok) toast("Đã gửi lại mã xác minh. Hãy kiểm tra email.");
 });
 
 $("#showRegister").addEventListener("click", () => {
@@ -282,7 +318,7 @@ function preparePasswordModal() {
 
 async function sendPasswordVerificationCode() {
   const loggedIn = !!document.getElementById("dashboardView") && !document.getElementById("dashboardView").classList.contains("hidden");
-  const email = loggedIn ? $("#profileEmail").value.trim() || $("#loginEmail").value.trim() : $("#passwordEmail").value.trim();
+  const email = loggedIn ? (window.__lumiCurrentUser?.email || $("#loginEmail").value.trim()) : $("#passwordEmail").value.trim();
 
   if (!email) {
     message($("#passwordMessage"), "Vui lòng nhập email để nhận mã xác minh.");
@@ -295,11 +331,8 @@ async function sendPasswordVerificationCode() {
   });
 
   message($("#passwordMessage"), data.message || "", response.ok);
+  if (response.ok) toast("Đã gửi mã xác minh. Hãy kiểm tra email.");
 
-  if (data.debug_code) {
-    $("#verificationCode").value = data.debug_code;
-    $("#verificationCode").focus();
-  }
 }
 
 $("#changePasswordBtn").addEventListener("click", () => {
@@ -352,6 +385,7 @@ $("#profileForm").addEventListener("submit", async (event) => {
   const payload = {
     full_name: $("#profileFullName").value,
     birth_date: $("#profileBirthDate").value,
+    id_number: $("#profileIdNumber").value,
     phone: $("#profilePhone").value,
     avatar_url: $("#profileAvatar").value,
   };
@@ -392,7 +426,7 @@ $("#passwordForm").addEventListener("submit", async (event) => {
   const confirmPassword = $("#confirmPassword").value;
   const verificationCode = $("#verificationCode").value.trim();
   const loggedIn = !!document.getElementById("dashboardView") && !document.getElementById("dashboardView").classList.contains("hidden");
-  const email = $("#passwordEmail").value.trim() || ($("#profileEmail") ? $("#profileEmail").value.trim() : "");
+  const email = $("#passwordEmail").value.trim() || (window.__lumiCurrentUser?.email || $("#loginEmail").value.trim());
 
   if (!currentPassword || !newPassword || !confirmPassword) {
     message($("#passwordMessage"), "Vui lòng nhập đầy đủ các trường bắt buộc.");
@@ -429,7 +463,7 @@ $("#passwordForm").addEventListener("submit", async (event) => {
   if (!loggedIn) {
     payload.email = email;
   } else {
-    payload.email = $("#profileEmail").value.trim();
+    payload.email = window.__lumiCurrentUser?.email || $("#loginEmail").value.trim();
   }
 
   const { response, data } = await api("/api/profile/password", {
