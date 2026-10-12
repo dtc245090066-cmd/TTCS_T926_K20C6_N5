@@ -72,6 +72,56 @@ class BookingServiceTimeTests(unittest.TestCase):
         self.assertTrue(ok, message)
         self.assertAlmostEqual(float(booking["total"]), float(room["price"]) * 0.125, places=2)
 
+    def assert_overnight_total_for_nights(self, nights):
+        with self.database.connect() as connection:
+            room = connection.execute(
+                "SELECT id FROM rooms WHERE status = 'available' ORDER BY id LIMIT 1"
+            ).fetchone()
+            connection.execute(
+                "UPDATE rooms SET price = 1550000 WHERE id = ?",
+                (room["id"],),
+            )
+
+        check_in = (datetime.now().date() + timedelta(days=30)).isoformat()
+        start_date = datetime.strptime(check_in, "%Y-%m-%d").date()
+        check_out = (start_date + timedelta(days=nights)).isoformat()
+        ok, message, booking = self.service.create_booking({
+            "customer_name": "Overnight Guest",
+            "room_id": room["id"],
+            "check_in": check_in,
+            "check_out": check_out,
+            "check_in_time": "14:00",
+            "check_out_time": "11:00",
+        })
+
+        self.assertTrue(ok, message)
+        self.assertEqual(float(booking["total"]), nights * 1550000)
+
+    def test_one_night_rental_total(self):
+        self.assert_overnight_total_for_nights(1)
+
+    def test_two_night_rental_total(self):
+        self.assert_overnight_total_for_nights(2)
+
+    def test_three_night_rental_total(self):
+        self.assert_overnight_total_for_nights(3)
+
+    def test_checkout_date_before_checkin_is_rejected(self):
+        check_in = (datetime.now().date() + timedelta(days=30)).isoformat()
+        check_out = (datetime.now().date() + timedelta(days=29)).isoformat()
+        ok, message, booking = self.service.create_booking({
+            "customer_name": "Invalid Date Guest",
+            "room_id": 1,
+            "check_in": check_in,
+            "check_out": check_out,
+            "check_in_time": "14:00",
+            "check_out_time": "11:00",
+        })
+
+        self.assertFalse(ok)
+        self.assertEqual(message, "Ngày trả phòng phải sau hoặc bằng ngày nhận phòng.")
+        self.assertIsNone(booking)
+
     def test_past_checkout_is_rejected(self):
         with self.database.connect() as connection:
             room = connection.execute(

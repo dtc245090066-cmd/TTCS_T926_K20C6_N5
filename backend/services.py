@@ -756,9 +756,12 @@ class BookingService:
                     b.id, b.code, b.customer_name, b.check_in,
                     b.check_out, b.check_in_time, b.check_out_time,
                     b.total, b.status,
+                    c.phone AS customer_phone, c.id_number AS customer_id_number,
+                    c.email AS customer_email,
                     r.code AS room_code, r.name AS room_name
                 FROM bookings b
                 JOIN rooms r ON r.id = b.room_id
+                LEFT JOIN customers c ON c.id = b.customer_id
                 ORDER BY b.id DESC
                 """
             ).fetchall()
@@ -767,6 +770,9 @@ class BookingService:
 
     def create_booking(self, payload: dict[str, Any]):
         customer = str(payload.get("customer_name", "")).strip()
+        phone = str(payload.get("customer_phone", "")).strip()
+        id_number = str(payload.get("customer_id_number", "")).strip()
+        email = str(payload.get("customer_email", "")).strip().lower()
         room_id = payload.get("room_id")
         check_in = str(payload.get("check_in", "")).strip()
         check_out = str(payload.get("check_out", "")).strip()
@@ -776,6 +782,12 @@ class BookingService:
 
         if not customer:
             return False, "Vui lòng nhập tên khách hàng.", None
+        if not re.fullmatch(r"0[35789]\d{8}", phone):
+            return False, "Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 03, 05, 07, 08 hoặc 09.", None
+        if not re.fullmatch(r"\d{12}", id_number):
+            return False, "CCCD phải gồm đúng 12 chữ số.", None
+        if email and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
+            return False, "Email khách hàng không hợp lệ.", None
 
         try:
             room_id = int(room_id)
@@ -826,13 +838,15 @@ class BookingService:
             if not math.isfinite(room_price) or room_price <= 0:
                 return False, "Giá phòng không hợp lệ.", None
 
-            if check_in_time and check_out_time:
+            nights = (end - start).days
+            if nights > 0:
+                computed_total = nights * room_price
+            elif check_in_time and check_out_time:
                 delta_hours = (datetime.strptime(f"{check_out} {check_out_time}", "%Y-%m-%d %H:%M") - datetime.strptime(f"{check_in} {check_in_time}", "%Y-%m-%d %H:%M")).total_seconds() / 3600
                 if delta_hours <= 0:
                     return False, "Thời gian thuê phải lớn hơn 0 giờ.", None
                 computed_total = room_price * (delta_hours / 24)
             else:
-                nights = (end - start).days
                 if nights <= 0:
                     return False, "Thời gian thuê phải lớn hơn 0 ngày.", None
                 computed_total = nights * room_price
@@ -855,17 +869,41 @@ class BookingService:
             code = "BK-" + datetime.now().strftime("%m%d%H%M%S")
 
             try:
+                existing_customer = connection.execute(
+                    "SELECT id, email FROM customers WHERE id_number = ? ORDER BY id DESC LIMIT 1",
+                    (id_number,),
+                ).fetchone()
+                if existing_customer is None:
+                    customer_cursor = connection.execute(
+                        """
+                        INSERT INTO customers(full_name, phone, email, id_number)
+                        VALUES (?, ?, ?, ?)
+                        """,
+                        (customer, phone, email or None, id_number),
+                    )
+                    customer_id = customer_cursor.lastrowid
+                else:
+                    customer_id = existing_customer["id"]
+                    connection.execute(
+                        """
+                        UPDATE customers
+                        SET full_name = ?, phone = ?, email = COALESCE(?, email)
+                        WHERE id = ?
+                        """,
+                        (customer, phone, email or None, customer_id),
+                    )
+
                 cursor = connection.execute(
                     """
                     INSERT INTO bookings(
-                        code, customer_name, room_id,
+                        code, customer_name, customer_id, room_id,
                         check_in, check_out, check_in_time, check_out_time,
                         total, status
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'booked')
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'booked')
                     """,
                     (
-                        code, customer, room_id, check_in, check_out,
+                        code, customer, customer_id, room_id, check_in, check_out,
                         check_in_time, check_out_time, total,
                     ),
                 )
@@ -875,9 +913,12 @@ class BookingService:
                 )
                 booking = connection.execute(
                     """
-                    SELECT b.*, r.code AS room_code, r.name AS room_name
+                    SELECT b.*, r.code AS room_code, r.name AS room_name,
+                        c.phone AS customer_phone, c.id_number AS customer_id_number,
+                        c.email AS customer_email
                     FROM bookings b
                     JOIN rooms r ON r.id = b.room_id
+                    LEFT JOIN customers c ON c.id = b.customer_id
                     WHERE b.id = ?
                     """,
                     (cursor.lastrowid,),
@@ -892,7 +933,49 @@ class DashboardService:
     def __init__(self, database: Database) -> None:
         self.database = database
 
+    def get_monthly_revenue(self, year: int | None = None) -> dict[str, Any]:
+        current_year = int(year or datetime.now().year)
+
+        with self.database.connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT CAST(strftime('%m', check_out) AS INTEGER) AS month,
+                       COALESCE(SUM(total), 0) AS total
+                FROM bookings
+                WHERE status IN ('booked', 'checked_in', 'checked_out')
+                  AND check_out IS NOT NULL
+                  AND length(check_out) = 10
+                  AND check_out GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+                  AND strftime('%Y-%m-%d', check_out) = check_out
+                  AND CAST(strftime('%Y', check_out) AS INTEGER) = ?
+                GROUP BY CAST(strftime('%m', check_out) AS INTEGER)
+                ORDER BY month ASC
+                """,
+                (current_year,),
+            ).fetchall()
+
+        totals_by_month = {
+            int(row["month"]): float(row["total"] or 0)
+            for row in rows
+        }
+        months = [
+            {
+                "month": month,
+                "total": totals_by_month.get(month, 0.0),
+            }
+            for month in range(1, 13)
+        ]
+        total_revenue = sum(item["total"] for item in months)
+
+        return {
+            "year": current_year,
+            "months": months,
+            "total": total_revenue,
+        }
+
     def get_summary(self) -> dict[str, Any]:
+        revenue_summary = self.get_monthly_revenue()
+
         with self.database.connect() as connection:
             rooms = connection.execute(
                 "SELECT COUNT(*) AS total FROM rooms"
@@ -918,14 +1001,6 @@ class DashboardService:
                 "SELECT COUNT(*) AS total FROM bookings"
             ).fetchone()["total"]
 
-            revenue = connection.execute(
-                """
-                SELECT COALESCE(SUM(total), 0) AS total
-                FROM bookings
-                WHERE status IN ('booked', 'checked_in', 'checked_out')
-                """
-            ).fetchone()["total"]
-
         occupancy = round((occupied / rooms) * 100, 1) if rooms else 0
 
         return {
@@ -935,6 +1010,7 @@ class DashboardService:
             "cleaning_rooms": cleaning,
             "maintenance_rooms": maintenance,
             "bookings": bookings,
-            "revenue": revenue,
+            "revenue": revenue_summary["total"],
             "occupancy": occupancy,
+            "year": revenue_summary["year"],
         }

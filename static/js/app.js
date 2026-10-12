@@ -18,6 +18,8 @@ let activeConfirmation = null;
 let chart;
 let selectedAvatarFile = null;
 let selectedRoomImageFile = null;
+let selectedRevenueYear = new Date().getFullYear();
+let isExportingRevenuePdf = false;
 
 const statusMap = {
   available: "Trống",
@@ -455,6 +457,11 @@ function setView(view) {
   if (view === "room-list") renderRoomList();
   if (view === "room-types") renderRoomTypes();
   if (view === "checkout") renderCheckoutList();
+  if (view === "revenue") {
+    bindRevenueYearSelector();
+    buildRevenueYearOptions();
+    fetchRevenueStatistics(selectedRevenueYear).catch(error => console.error(error));
+  }
 }
 
 $$(".nav-item[data-view]").forEach((item) => {
@@ -478,29 +485,138 @@ $$("[data-go]").forEach((button) => {
   button.addEventListener("click", () => setView(button.dataset.go));
 });
 
+function bindRevenueYearSelector() {
+  const select = document.getElementById("revenueYearSelect");
+  if (!select || select.dataset.bound === "true") return;
+
+  select.dataset.bound = "true";
+  select.addEventListener("change", async () => {
+    const year = Number(select.value || selectedRevenueYear || new Date().getFullYear());
+    selectedRevenueYear = year;
+    await fetchRevenueStatistics(year);
+  });
+}
+
+function buildRevenueYearOptions() {
+  const select = document.getElementById("revenueYearSelect");
+  if (!select) return;
+
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 7 }, (_, index) => currentYear - 3 + index);
+  select.innerHTML = years.map((year) => `<option value="${year}">${year}</option>`).join("");
+  select.value = String(selectedRevenueYear || currentYear);
+}
+
+async function fetchRevenueStatistics(year = selectedRevenueYear) {
+  const { response, data } = await api(`/api/revenue-statistics?year=${encodeURIComponent(year)}`);
+  if (response.ok) {
+    renderRevenueStatistics(data);
+  }
+  return { response, data };
+}
+
+async function exportRevenuePdf() {
+  if (isExportingRevenuePdf) return;
+
+  const year = Number(selectedRevenueYear || new Date().getFullYear());
+  const exportUrl = `/api/revenue-statistics/export?year=${encodeURIComponent(year)}`;
+  const exportButton = $("#exportRevenuePdfBtn");
+  isExportingRevenuePdf = true;
+  exportButton.disabled = true;
+
+  try {
+    const response = await fetch(exportUrl, {
+      method: "GET",
+      headers: { Accept: "application/pdf" },
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.message || "Không thể xuất PDF.");
+    }
+
+    const blob = await response.blob();
+    if (blob.size === 0) {
+      throw new Error("Máy chủ trả về file PDF rỗng.");
+    }
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `LumiHotel_ThongKeThuNhap_${year}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+    toast("Xuất PDF thành công");
+  } catch (error) {
+    console.error(error);
+    toast(error.message || "Xuất PDF thất bại.");
+  } finally {
+    isExportingRevenuePdf = false;
+    exportButton.disabled = false;
+  }
+}
+
+$("#exportRevenuePdfBtn").addEventListener("click", async () => {
+  const confirmed = await requestConfirmation({
+    modalId: "exportPdfConfirmModal",
+    submitId: "exportPdfConfirmSubmit",
+  });
+  if (confirmed) await exportRevenuePdf();
+});
+
 async function loadAll() {
   try {
-    const [roomsResult, roomTypesResult, bookingsResult, dashboardResult] = await Promise.all([
+    const [roomsResult, roomTypesResult, bookingsResult, dashboardResult, revenueResult] = await Promise.all([
       api("/api/rooms"),
       api("/api/room-types"),
       api("/api/bookings"),
       api("/api/dashboard"),
+      api(`/api/revenue-statistics?year=${encodeURIComponent(selectedRevenueYear)}`),
     ]);
 
     rooms = roomsResult.data.rooms || [];
     roomTypes = roomTypesResult.data.room_types || [];
     bookings = bookingsResult.data.bookings || [];
 
+    bindRevenueYearSelector();
+    buildRevenueYearOptions();
     fillRoomTypeOptions();
     renderRooms();
     renderRoomList();
     renderRoomTypes();
     renderCheckoutList();
-    renderDashboard(dashboardResult.data);
+    if (dashboardResult.response.ok) {
+      renderDashboard(dashboardResult.data);
+    }
+    if (revenueResult.response.ok) {
+      renderRevenueStatistics(revenueResult.data);
+    }
     fillBookingRooms();
   } catch (error) {
     console.error(error);
   }
+}
+
+function renderRevenueStatistics(data = {}) {
+  const year = Number(data.year || selectedRevenueYear || new Date().getFullYear());
+  selectedRevenueYear = year;
+  const total = Number(data.total || 0);
+  const rows = Array.isArray(data.months) ? data.months : Array.from({ length: 12 }, (_, index) => ({ month: index + 1, total: 0 }));
+
+  const select = document.getElementById("revenueYearSelect");
+  if (select) {
+    select.value = String(year);
+  }
+
+  $("#revenueYearSummary").textContent = `Tổng thu nhập cả năm ${year}`;
+  $("#revenueYearValue").textContent = money(total);
+  $("#revenueTableBody").innerHTML = rows.map(item => `
+    <tr>
+      <td>Tháng ${item.month}</td>
+      <td>${money(item.total || 0)}</td>
+    </tr>
+  `).join("");
 }
 
 function renderDashboard(summary) {
@@ -801,7 +917,7 @@ function requestConfirmation({ modalId, roomCodeId, submitId, roomCode }) {
   if (activeConfirmation) return Promise.resolve(false);
 
   const modal = $(`#${modalId}`);
-  $(`#${roomCodeId}`).textContent = roomCode;
+  if (roomCodeId) $(`#${roomCodeId}`).textContent = roomCode;
 
   return new Promise(resolve => {
     activeConfirmation = { resolve, trigger: document.activeElement, modal };
@@ -815,6 +931,7 @@ function requestConfirmation({ modalId, roomCodeId, submitId, roomCode }) {
 [
   ["checkoutConfirmModal", "checkoutConfirmCancel", "checkoutConfirmClose", "checkoutConfirmSubmit"],
   ["roomDeleteConfirmModal", "roomDeleteConfirmCancel", "roomDeleteConfirmClose", "roomDeleteConfirmSubmit"],
+  ["exportPdfConfirmModal", "exportPdfConfirmCancel", "exportPdfConfirmClose", "exportPdfConfirmSubmit"],
 ].forEach(([modalId, cancelId, closeId, submitId]) => {
   $(`#${cancelId}`).addEventListener("click", () => closeConfirmation(false));
   $(`#${closeId}`).addEventListener("click", () => closeConfirmation(false));
@@ -940,6 +1057,9 @@ function checkoutRoomCardMarkup(room) {
         <p class="checkout-room-type">${escapeHtml(room.room_type_name || room.room_type || "Phòng")} · Tầng ${escapeHtml(room.floor)}</p>
         <dl class="checkout-details">
           <div><dt>Khách đang ở</dt><dd>${escapeHtml(booking?.customer_name || "--")}</dd></div>
+          <div><dt>Số điện thoại</dt><dd>${escapeHtml(booking?.customer_phone || "--")}</dd></div>
+          <div><dt>CCCD</dt><dd>${escapeHtml(booking?.customer_id_number || "--")}</dd></div>
+          ${booking?.customer_email ? `<div><dt>Email</dt><dd>${escapeHtml(booking.customer_email)}</dd></div>` : ""}
           <div><dt>Giờ vào</dt><dd>${escapeHtml(formatBookingDateTime(booking?.check_in, booking?.check_in_time))}</dd></div>
           <div><dt>Giờ trả dự kiến</dt><dd>${escapeHtml(formatBookingDateTime(booking?.check_out, booking?.check_out_time))}</dd></div>
           <div><dt>Thời gian ở</dt><dd>${stayDays === null ? "--" : `${stayDays} ngày`}</dd></div>
@@ -1079,8 +1199,10 @@ function updateBookingSummary() {
     return;
   }
 
-  const start = new Date(`${bookingCheckIn.value}T${bookingCheckInTime.value}:00`);
-  const end = new Date(`${bookingCheckOut.value}T${bookingCheckOutTime.value}:00`);
+  const checkInDate = parseLocalDate(bookingCheckIn.value);
+  const checkOutDate = parseLocalDate(bookingCheckOut.value);
+  const start = checkInDate ? new Date(`${bookingCheckIn.value}T${bookingCheckInTime.value}:00`) : new Date(NaN);
+  const end = checkOutDate ? new Date(`${bookingCheckOut.value}T${bookingCheckOutTime.value}:00`) : new Date(NaN);
   let checkoutError = "";
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
     checkoutError = "Vui lòng nhập thời gian thuê hợp lệ.";
@@ -1105,9 +1227,14 @@ function updateBookingSummary() {
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
   const hourlyRate = Number(room.price || 0) / 24;
-  const total = totalHours * hourlyRate;
-  durationEl.textContent = `${hours} giờ${minutes ? ` ${minutes} phút` : ""}`;
-  priceEl.textContent = `${money(hourlyRate)} / giờ · ${money(room.price)} / đêm`;
+  const nights = dateOffset(checkOutDate, checkInDate);
+  const total = nights > 0 ? nights * Number(room.price || 0) : totalHours * hourlyRate;
+  durationEl.textContent = nights > 0
+    ? `${nights} đêm`
+    : `${hours} giờ${minutes ? ` ${minutes} phút` : ""}`;
+  priceEl.textContent = nights > 0
+    ? `${money(room.price)} / đêm`
+    : `${money(hourlyRate)} / giờ · ${money(room.price)} / đêm`;
   totalEl.textContent = money(total);
 }
 
@@ -1245,6 +1372,9 @@ $("#bookingForm").addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const customerName = $("#bookingCustomer").value.trim();
+  const customerPhone = $("#bookingCustomerPhone").value.trim();
+  const customerIdNumber = $("#bookingCustomerIdNumber").value.trim();
+  const customerEmail = $("#bookingCustomerEmail").value.trim();
   const roomId = Number($("#bookingRoom").value);
   const checkIn = $("#bookingCheckIn").value;
   const checkOut = $("#bookingCheckOut").value;
@@ -1257,6 +1387,18 @@ $("#bookingForm").addEventListener("submit", async (event) => {
     message($("#bookingMessage"), "Vui lòng nhập tên khách hàng.");
     return;
   }
+  if (!/^0[35789]\d{8}$/.test(customerPhone)) {
+    message($("#bookingMessage"), "Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 03, 05, 07, 08 hoặc 09.");
+    return;
+  }
+  if (!/^\d{12}$/.test(customerIdNumber)) {
+    message($("#bookingMessage"), "CCCD phải gồm đúng 12 chữ số.");
+    return;
+  }
+  if (customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) {
+    message($("#bookingMessage"), "Email khách hàng không hợp lệ.");
+    return;
+  }
   if (!roomId || !checkIn || !checkOut) {
     message($("#bookingMessage"), "Vui lòng chọn phòng và ngày thuê hợp lệ.");
     return;
@@ -1266,8 +1408,10 @@ $("#bookingForm").addEventListener("submit", async (event) => {
     return;
   }
 
-  const start = new Date(`${checkIn}T${checkInTime}:00`);
-  const end = new Date(`${checkOut}T${checkOutTime}:00`);
+  const checkInDate = parseLocalDate(checkIn);
+  const checkOutDate = parseLocalDate(checkOut);
+  const start = checkInDate ? new Date(`${checkIn}T${checkInTime}:00`) : new Date(NaN);
+  const end = checkOutDate ? new Date(`${checkOut}T${checkOutTime}:00`) : new Date(NaN);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
     message($("#bookingMessage"), "Giờ trả phòng phải sau giờ nhận phòng.");
     return;
@@ -1289,11 +1433,17 @@ $("#bookingForm").addEventListener("submit", async (event) => {
   }
 
   const totalHours = (end - start) / 3600000;
-  const expectedTotal = (Number(room.price || 0) / 24) * totalHours;
+  const nights = dateOffset(checkOutDate, checkInDate);
+  const expectedTotal = nights > 0
+    ? nights * Number(room.price || 0)
+    : (Number(room.price || 0) / 24) * totalHours;
   const { response, data } = await api("/api/bookings", {
     method: "POST",
     body: JSON.stringify({
       customer_name: customerName,
+      customer_phone: customerPhone,
+      customer_id_number: customerIdNumber,
+      customer_email: customerEmail,
       room_id: roomId,
       check_in: checkIn,
       check_out: checkOut,

@@ -13,9 +13,19 @@
 .main:has([data-view-panel="overview"].active){padding-top:6px}
 .main:has([data-view-panel="overview"].active) .topbar{margin-bottom:0}
 .main:has([data-view-panel="overview"].active) .section-page-head{margin-top:0}
-.main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active, [data-view-panel="room-types"].active, [data-view-panel="checkout"].active){padding-top:6px}
-.main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active, [data-view-panel="room-types"].active, [data-view-panel="checkout"].active) .topbar{margin-bottom:0}
-.main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active, [data-view-panel="room-types"].active, [data-view-panel="checkout"].active) .section-page-head{margin-top:0}
+.main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active, [data-view-panel="room-types"].active, [data-view-panel="checkout"].active, [data-view-panel="revenue"].active){padding-top:6px}
+.main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active, [data-view-panel="room-types"].active, [data-view-panel="checkout"].active, [data-view-panel="revenue"].active) .topbar{margin-bottom:0}
+.main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active, [data-view-panel="room-types"].active, [data-view-panel="checkout"].active, [data-view-panel="revenue"].active) .section-page-head{margin-top:0}
+.stats-grid{margin-bottom:12px}
+.revenue-panel{padding:18px 20px 10px}
+.revenue-summary-card{display:flex;flex-direction:column;gap:6px;padding:16px 18px;margin:18px 0 16px;border:1px solid var(--line);border-radius:12px;background:linear-gradient(135deg,#fffaf2,#fbf1e1)}
+.revenue-summary-label{font-size:11px;letter-spacing:1.2px;color:var(--muted);text-transform:uppercase}
+.revenue-summary-value{font-size:30px;font-weight:700;color:var(--brown)}
+.revenue-table{margin-top:8px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.revenue-table th,.revenue-table td{padding:12px 14px;border-bottom:1px solid #efe7df;text-align:left}
+.revenue-table thead th{background:#f9f2e9;color:#7a685d;text-transform:uppercase;letter-spacing:.8px}
+.revenue-table tbody tr:nth-child(even){background:#fcfaf7}
+.revenue-table tbody tr:last-child td{border-bottom:0}
 .stats-grid{margin-bottom:12px}
 .frontdesk-arrivals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0 0 18px}
 .frontdesk-arrivals>div{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:54px;padding:10px 15px;border:1px solid var(--line);border-radius:11px;background:var(--paper)}
@@ -233,6 +243,11 @@
 .booking-room-details>span{display:flex;justify-content:space-between;gap:8px;color:var(--muted);font-size:11px}
 .booking-room-details strong{color:var(--ink);text-align:right}
 .booking-room-description{grid-column:1/-1;margin:0;color:var(--muted);font-size:11px;line-height:1.5}
+#bookingSummary>div{display:flex;align-items:baseline;justify-content:space-between;gap:12px;line-height:1.5}
+#bookingSummary>div>span{flex:0 0 auto;color:var(--muted);font-size:14px;font-weight:500}
+#bookingSummary>div>strong{min-width:0;color:var(--ink);font-size:14px;font-weight:600;text-align:right;overflow-wrap:anywhere}
+#bookingSummary>.total>span{font-weight:600}
+#bookingSummary>.total>strong{font-size:16px;font-weight:700}
 #bookingCheckOutError:not(:empty){margin-top:-6px}
 #profileModal{padding-top:var(--navbar-height)}
 .profile-modal-box{max-height:calc(100vh - var(--navbar-height) - 24px);max-height:calc(100dvh - var(--navbar-height) - 24px);overflow-y:auto;overscroll-behavior:contain}
@@ -469,6 +484,9 @@ body{background-size:auto,auto,auto,52px 52px,52px 52px;background-repeat:no-rep
 .checkout-confirmation-cancel:hover{border-color:#c9c1b8!important;background:#e6e2dd;transform:translateY(-2px);box-shadow:0 6px 14px rgba(58,48,39,.12)}
 .checkout-confirmation-submit{background:#c62828;color:#fff}
 .checkout-confirmation-submit:hover{background:#941d1d;transform:translateY(-2px);box-shadow:0 7px 16px rgba(148,29,29,.3)}
+.export-pdf-confirmation .checkout-confirmation-icon{background:#f8e8bd;color:#966829}
+.export-pdf-confirmation .checkout-confirmation-submit{background:linear-gradient(135deg,#c89b52,#8a6035)}
+.export-pdf-confirmation .checkout-confirmation-submit:hover{background:linear-gradient(135deg,#d8af65,#77502d);box-shadow:0 7px 16px rgba(138,96,53,.3)}
 .checkout-confirmation-actions button:active{transform:translateY(0) scale(.98)}
 .checkout-confirmation-actions button:focus-visible,.checkout-confirmation-close:focus-visible{outline:3px solid rgba(198,40,40,.3);outline-offset:3px}
 @keyframes checkout-overlay-in{from{opacity:0}to{opacity:1}}
