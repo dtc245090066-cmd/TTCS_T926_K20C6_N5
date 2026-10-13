@@ -71,6 +71,23 @@ function message(el, text, success = false) {
   el.classList.toggle("success", success);
 }
 
+function togglePasswordVisibility(button) {
+  const targetId = button.dataset.target;
+  const input = targetId ? document.getElementById(targetId) : null;
+
+  if (!input) return;
+
+  const shouldShow = input.type === "password";
+  input.type = shouldShow ? "text" : "password";
+  button.textContent = shouldShow ? "🙈" : "👁";
+  button.setAttribute("aria-label", shouldShow ? "Ẩn mật khẩu" : "Hiện mật khẩu");
+  button.setAttribute("title", shouldShow ? "Ẩn mật khẩu" : "Hiện mật khẩu");
+}
+
+document.querySelectorAll(".password-toggle").forEach((button) => {
+  button.addEventListener("click", () => togglePasswordVisibility(button));
+});
+
 async function api(url, options = {}) {
   const headers = options.body instanceof FormData
     ? { ...(options.headers || {}) }
