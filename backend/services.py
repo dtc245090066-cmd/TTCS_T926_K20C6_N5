@@ -33,7 +33,8 @@ class AuthService:
         with self.database.connect() as connection:
             user = connection.execute(
                 """
-                SELECT id, full_name, email, password_hash, role, birth_date, phone, avatar_url, id_number
+                SELECT id, full_name, email, password_hash, role, birth_date, phone,
+                    avatar_url, id_number, gender, contact_name, contact_address
                 FROM users
                 WHERE LOWER(email) = ?
                 """,
@@ -52,13 +53,17 @@ class AuthService:
             "phone": user["phone"],
             "id_number": user["id_number"],
             "avatar_url": user["avatar_url"],
+            "gender": user["gender"],
+            "contact_name": user["contact_name"],
+            "contact_address": user["contact_address"],
         }
 
     def get_profile(self, user_id: int) -> dict[str, Any] | None:
         with self.database.connect() as connection:
             user = connection.execute(
                 """
-                SELECT id, full_name, email, role, birth_date, phone, avatar_url, id_number
+                SELECT id, full_name, email, role, birth_date, phone, avatar_url,
+                    id_number, gender, contact_name, contact_address
                 FROM users
                 WHERE id = ?
                 """,
@@ -77,7 +82,8 @@ class AuthService:
         with self.database.connect() as connection:
             current = connection.execute(
                 """
-                SELECT id, full_name, email, role, birth_date, phone, avatar_url, id_number
+                SELECT id, full_name, email, role, birth_date, phone, avatar_url,
+                    id_number, gender, contact_name, contact_address
                 FROM users
                 WHERE id = ?
                 """,
@@ -92,9 +98,19 @@ class AuthService:
             phone = str(payload.get("phone", current["phone"] or "")).strip()
             id_number = str(payload.get("id_number", current["id_number"] or "")).strip()
             avatar_url = str(payload.get("avatar_url", current["avatar_url"] or "")).strip()
+            email = str(payload.get("email", current["email"] or "")).strip().lower()
+            gender = str(payload.get("gender", current["gender"] or "")).strip()
+            contact_name = str(payload.get("contact_name", current["contact_name"] or "")).strip()
+            contact_address = str(payload.get("contact_address", current["contact_address"] or "")).strip()
 
             if not full_name or len(full_name) > 120:
                 return False, "Vui lòng nhập họ tên hợp lệ.", None
+
+            if len(email) > 254 or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+                return False, "Vui lòng nhập email hợp lệ.", None
+
+            if gender and gender not in {"Nam", "Nữ"}:
+                return False, "Vui lòng chọn giới tính Nam hoặc Nữ.", None
 
             if birth_date:
                 try:
@@ -102,27 +118,50 @@ class AuthService:
                 except ValueError:
                     return False, "Ngày sinh không hợp lệ.", None
 
-            if phone and len(phone) > 30:
-                return False, "Số điện thoại quá dài.", None
+            if phone and not re.fullmatch(r"0[35789]\d{8}", phone):
+                return False, "Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 03, 05, 07, 08 hoặc 09.", None
 
-            if id_number and not re.fullmatch(r"\d{12}", id_number):
-                return False, "CCCD phải gồm đúng 12 chữ số.", None
+            if id_number and not re.fullmatch(r"(?:\d{9}|\d{12}|(?=.*[A-Za-z])[A-Za-z0-9-]{6,20})", id_number):
+                return False, "Số CCCD/CMND/Hộ chiếu không hợp lệ.", None
 
             if avatar_url and len(avatar_url) > 500:
                 return False, "Link ảnh đại diện quá dài.", None
 
-            connection.execute(
-                """
-                UPDATE users
-                SET full_name = ?, birth_date = ?, phone = ?, id_number = ?, avatar_url = ?
-                WHERE id = ?
-                """,
-                (full_name, birth_date or None, phone or None, id_number or None, avatar_url or None, user_id),
-            )
+            if len(contact_name) > 120:
+                return False, "Tên liên hệ không được dài quá 120 ký tự.", None
+
+            if len(contact_address) > 300:
+                return False, "Địa chỉ liên hệ không được dài quá 300 ký tự.", None
+
+            duplicate_email = connection.execute(
+                "SELECT id FROM users WHERE LOWER(email) = ? AND id != ?",
+                (email, user_id),
+            ).fetchone()
+            if duplicate_email is not None:
+                return False, "Email này đã được tài khoản khác sử dụng.", None
+
+            try:
+                connection.execute(
+                    """
+                    UPDATE users
+                    SET full_name = ?, email = ?, birth_date = ?, gender = ?,
+                        phone = ?, id_number = ?, avatar_url = ?,
+                        contact_name = ?, contact_address = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        full_name, email, birth_date or None, gender or None,
+                        phone or None, id_number or None, avatar_url or None,
+                        contact_name or None, contact_address or None, user_id,
+                    ),
+                )
+            except sqlite3.IntegrityError:
+                return False, "Email này đã được tài khoản khác sử dụng.", None
 
             updated = connection.execute(
                 """
-                SELECT id, full_name, email, role, birth_date, phone, avatar_url, id_number
+                SELECT id, full_name, email, role, birth_date, phone, avatar_url,
+                    id_number, gender, contact_name, contact_address
                 FROM users
                 WHERE id = ?
                 """,

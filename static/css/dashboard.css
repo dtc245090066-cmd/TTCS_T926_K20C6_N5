@@ -251,6 +251,22 @@
 #bookingCheckOutError:not(:empty){margin-top:-6px}
 #profileModal{padding-top:var(--navbar-height)}
 .profile-modal-box{max-height:calc(100vh - var(--navbar-height) - 24px);max-height:calc(100dvh - var(--navbar-height) - 24px);overflow-y:auto;overscroll-behavior:contain}
+.profile-modal-box{width:min(760px,100%)}
+.profile-fields{min-width:0;margin-top:12px}
+.profile-field{display:grid;grid-template-columns:minmax(145px,205px) minmax(0,1fr) 34px;gap:10px;align-items:center;min-height:48px;border-bottom:1px solid #ebe3d9}
+.profile-fields [hidden]{display:none!important}
+.profile-field:last-child{border-bottom:0}
+.profile-field>label{margin:0!important;color:#75685d;font-size:12px!important;font-weight:600}
+.profile-field-value{min-width:0;overflow-wrap:anywhere;color:var(--ink);font-size:13px;font-weight:600}
+.profile-field input:not([type="checkbox"]):not([type="hidden"]):not([type="file"]),.profile-field select{width:100%;min-width:0;min-height:36px;padding:6px 9px;font-size:13px}
+.profile-edit-button{display:grid;place-items:center;width:32px;height:32px;border:1px solid transparent;border-radius:8px;background:transparent;color:#927047;cursor:pointer}
+.profile-edit-button:hover,.profile-edit-button:focus-visible{border-color:#e5d6c2;background:#f8f1e7;outline:0}
+.profile-edit-button svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;stroke-width:1.6}
+.profile-form-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:18px}
+.profile-form-actions .text-link{margin-right:auto;border:0;background:transparent;color:#927047;font-size:13px;font-weight:700;cursor:pointer}
+.profile-form-actions .primary-btn{min-width:130px}
+.profile-modal-box .form-message{min-height:0;margin:12px 0 0}
+.profile-modal-box .form-message:empty{display:none}
 #passwordModal .modal-box{max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow-y:auto;overscroll-behavior:contain}
 .modal-box label{font-size:14px;margin:14px 0}
 .modal-box input,.modal-box select,.modal-box textarea{min-height:50px;padding:12px 14px;font-size:15px}
@@ -441,6 +457,12 @@ body{background-size:auto,auto,auto,52px 52px,52px 52px;background-repeat:no-rep
   .modal-box .form-actions button{width:100%;min-width:0;min-height:46px;padding:10px}
   #profileModal{padding:10px}
   .profile-modal-box{max-height:calc(90vh - 20px);max-height:calc(90dvh - 20px)}
+  .profile-field{grid-template-columns:minmax(116px,38%) minmax(0,1fr) 32px;gap:8px;min-height:48px}
+  .profile-field>label{font-size:11px!important}
+  .profile-field-value{font-size:12px}
+  .profile-modal-box .profile-form-actions{display:flex;flex-wrap:wrap}
+  .profile-modal-box .profile-form-actions>button{width:auto}
+  .profile-form-actions .text-link{flex:1 0 100%;order:3;margin:0;text-align:left}
   #bookingModal .modal-box{width:100%;padding:16px}
   #bookingModal .modal-box .form-actions{bottom:-16px;margin:8px -16px -16px;padding:9px 16px 12px}
   .booking-room-summary{grid-template-columns:68px minmax(0,1fr);gap:8px 10px;margin:8px 0;padding:9px}

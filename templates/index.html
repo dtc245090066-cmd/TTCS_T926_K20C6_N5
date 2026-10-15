@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v='gold-ambient-20261008-4') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v='profile-form-20261015-2') }}">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -114,8 +114,7 @@
       <div class="profile">
         <button class="top-avatar" id="topProfileBtn" title="Mở hồ sơ người dùng" aria-label="Mở hồ sơ người dùng"><img id="topUserAvatar" alt="" hidden><span id="topUserInitials">LH</span></button>
         <div class="profile-info"><strong id="userName">Admin</strong><small id="userRole">Quản lý</small></div>
-        <button class="icon-btn" id="profileBtn" title="Cập nhật hồ sơ">✎</button>
-        <button class="icon-btn" id="changePasswordBtn" title="Đổi mật khẩu">🔒</button>
+        <button class="icon-btn" id="profileBtn" title="Cập nhật hồ sơ" aria-label="Cập nhật hồ sơ"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></button>
         <button class="icon-btn" id="logoutBtn" title="Đăng xuất">↪</button>
       </div>
       <span class="hidden" id="profileAvatarBadge">LH</span>
@@ -410,30 +409,60 @@
   <div class="modal-box profile-modal-box">
     <button class="modal-close" data-close="profileModal">×</button>
     <span class="section-label">HỒ SƠ CÁ NHÂN</span>
-    <h3>Cập nhật thông tin</h3>
+    <h3>Thay đổi thông tin cá nhân</h3>
     <form id="profileForm">
-      <label>Họ và tên<input id="profileFullName" required></label>
-      <div class="two">
-        <label>Ngày sinh<input id="profileBirthDate" type="date"></label>
-        <label>CCCD<input id="profileIdNumber" type="text" inputmode="numeric" pattern="[0-9]{12}" maxlength="12" placeholder="Nhập số CCCD"></label>
-      </div>
-      <label>Số điện thoại<input id="profilePhone" type="tel" placeholder="0909..."></label>
-      <label>Ảnh đại diện
-        <span class="avatar-picker">
-          <span class="avatar-picker-button">Chọn ảnh từ thư viện</span>
-          <input id="profileAvatarFile" type="file" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
-        </span>
-        <span id="profileAvatarFileName" class="file-name">Chưa chọn ảnh</span>
-      </label>
-      <input id="profileAvatar" type="hidden">
-      <div class="profile-preview-box">
-        <img id="profileAvatarPreview" src="" alt="Ảnh đại diện" onerror="this.style.display='none'">
-      </div>
+      <section class="profile-fields" id="profileFields" aria-label="Thông tin cá nhân">
+          <div class="profile-field" data-profile-field="full_name">
+            <label for="profileFullName">Tên cá nhân</label>
+            <span class="profile-field-value" data-profile-value="full_name">—</span>
+            <input id="profileFullName" data-profile-input="full_name" maxlength="120" required hidden>
+            <button type="button" class="profile-edit-button" data-edit-profile-field="full_name" aria-label="Chỉnh sửa tên cá nhân" title="Chỉnh sửa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L19 8.5 15.5 5 4 16.5Zm13-13 3.5 3.5"/></svg></button>
+          </div>
+          <div class="profile-field" data-profile-field="gender">
+            <label for="profileGender">Giới tính</label>
+            <span class="profile-field-value" data-profile-value="gender">—</span>
+            <select id="profileGender" data-profile-input="gender" hidden><option value="">Chọn giới tính</option><option value="Nam">Nam</option><option value="Nữ">Nữ</option></select>
+            <button type="button" class="profile-edit-button" data-edit-profile-field="gender" aria-label="Chỉnh sửa giới tính" title="Chỉnh sửa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L19 8.5 15.5 5 4 16.5Zm13-13 3.5 3.5"/></svg></button>
+          </div>
+          <div class="profile-field" data-profile-field="birth_date">
+            <label for="profileBirthDate">Ngày sinh</label>
+            <span class="profile-field-value" data-profile-value="birth_date">—</span>
+            <input id="profileBirthDate" data-profile-input="birth_date" type="date" hidden>
+            <button type="button" class="profile-edit-button" data-edit-profile-field="birth_date" aria-label="Chỉnh sửa ngày sinh" title="Chỉnh sửa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L19 8.5 15.5 5 4 16.5Zm13-13 3.5 3.5"/></svg></button>
+          </div>
+          <div class="profile-field" data-profile-field="id_number">
+            <label for="profileIdNumber">Số CCCD/CMND/Hộ chiếu</label>
+            <span class="profile-field-value" data-profile-value="id_number">—</span>
+            <input id="profileIdNumber" data-profile-input="id_number" maxlength="20" autocomplete="off" hidden>
+            <button type="button" class="profile-edit-button" data-edit-profile-field="id_number" aria-label="Chỉnh sửa số giấy tờ" title="Chỉnh sửa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L19 8.5 15.5 5 4 16.5Zm13-13 3.5 3.5"/></svg></button>
+          </div>
+          <div class="profile-field" data-profile-field="phone">
+            <label for="profilePhone">Điện thoại</label>
+            <span class="profile-field-value" data-profile-value="phone">—</span>
+            <input id="profilePhone" data-profile-input="phone" type="tel" inputmode="numeric" maxlength="10" autocomplete="tel" hidden>
+            <button type="button" class="profile-edit-button" data-edit-profile-field="phone" aria-label="Chỉnh sửa điện thoại" title="Chỉnh sửa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L19 8.5 15.5 5 4 16.5Zm13-13 3.5 3.5"/></svg></button>
+          </div>
+          <div class="profile-field" data-profile-field="email">
+            <label for="profileEmail">Email</label>
+            <span class="profile-field-value" data-profile-value="email">—</span>
+            <input id="profileEmail" data-profile-input="email" type="email" maxlength="254" autocomplete="email" required hidden>
+            <button type="button" class="profile-edit-button" data-edit-profile-field="email" aria-label="Chỉnh sửa email" title="Chỉnh sửa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L19 8.5 15.5 5 4 16.5Zm13-13 3.5 3.5"/></svg></button>
+          </div>
+          <div class="profile-field" data-profile-field="contact_name">
+            <label for="profileContactName">Tên liên hệ</label>
+            <span class="profile-field-value" data-profile-value="contact_name">—</span>
+            <input id="profileContactName" data-profile-input="contact_name" maxlength="120" hidden>
+            <button type="button" class="profile-edit-button" data-edit-profile-field="contact_name" aria-label="Chỉnh sửa tên liên hệ" title="Chỉnh sửa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L19 8.5 15.5 5 4 16.5Zm13-13 3.5 3.5"/></svg></button>
+          </div>
+          <div class="profile-field" data-profile-field="contact_address">
+            <label for="profileContactAddress">Địa chỉ liên hệ</label>
+            <span class="profile-field-value" data-profile-value="contact_address">—</span>
+            <input id="profileContactAddress" data-profile-input="contact_address" maxlength="300" hidden>
+            <button type="button" class="profile-edit-button" data-edit-profile-field="contact_address" aria-label="Chỉnh sửa địa chỉ liên hệ" title="Chỉnh sửa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L19 8.5 15.5 5 4 16.5Zm13-13 3.5 3.5"/></svg></button>
+          </div>
+      </section>
       <p id="profileMessage" class="form-message"></p>
-      <div class="profile-extra-actions">
-        <button type="button" class="text-link" id="openPasswordModalBtn">Đổi mật khẩu</button>
-      </div>
-      <div class="form-actions"><button type="button" class="ghost-btn" data-close="profileModal">Hủy</button><button class="primary-btn">Lưu thay đổi</button></div>
+      <div class="form-actions profile-form-actions"><button type="button" class="ghost-btn" data-close="profileModal">Hủy</button><button class="primary-btn">Ghi nhận</button><button type="button" class="text-link" id="openPasswordModalBtn">Đổi mật khẩu</button></div>
     </form>
   </div>
 </div>

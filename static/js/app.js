@@ -16,7 +16,6 @@ let returnToRoomListAfterBooking = false;
 let lockedBookingRoomId = null;
 let activeConfirmation = null;
 let chart;
-let selectedAvatarFile = null;
 let selectedRoomImageFile = null;
 let selectedRevenueYear = new Date().getFullYear();
 let isExportingRevenuePdf = false;
@@ -180,19 +179,35 @@ async function loadProfile() {
 
     const user = data.user || {};
     setUserDisplay(user);
-    $("#profileFullName").value = user.full_name || "";
-    $("#profileBirthDate").value = user.birth_date || "";
-    $("#profileIdNumber").value = user.id_number || "";
-    $("#profilePhone").value = user.phone || "";
-    $("#profileAvatar").value = user.avatar_url || "";
-    selectedAvatarFile = null;
-    $("#profileAvatarFile").value = "";
-    $("#profileAvatarFileName").textContent = "Chưa chọn ảnh";
-    $("#profileAvatarPreview").src = user.avatar_url || "";
-    $("#profileAvatarPreview").style.display = user.avatar_url ? "block" : "none";
+    populateProfileForm(user);
   } catch (error) {
     console.error(error);
   }
+}
+
+function populateProfileForm(user) {
+  const values = {
+    full_name: user.full_name || "",
+    gender: user.gender || "",
+    birth_date: user.birth_date || "",
+    id_number: user.id_number || "",
+    phone: user.phone || "",
+    email: user.email || "",
+    contact_name: user.contact_name || "",
+    contact_address: user.contact_address || "",
+  };
+
+  Object.entries(values).forEach(([field, value]) => {
+    const input = document.querySelector(`[data-profile-input="${field}"]`);
+    const display = document.querySelector(`[data-profile-value="${field}"]`);
+    input.value = value;
+    display.textContent = value || "—";
+    input.hidden = true;
+    input.disabled = true;
+    display.hidden = false;
+    input.closest(".profile-field").classList.remove("is-editing");
+  });
+
 }
 
 async function checkSession() {
@@ -352,11 +367,6 @@ async function sendPasswordVerificationCode() {
 
 }
 
-$("#changePasswordBtn").addEventListener("click", () => {
-  preparePasswordModal();
-  openModal("passwordModal");
-});
-
 $("#openPasswordModalBtn").addEventListener("click", () => {
   preparePasswordModal();
   closeModal("profileModal");
@@ -376,62 +386,79 @@ $("#logoutBtn").addEventListener("click", async () => {
   toast("Đã đăng xuất");
 });
 
-$("#profileAvatarFile").addEventListener("change", () => {
-  selectedAvatarFile = $("#profileAvatarFile").files[0] || null;
-  $("#profileAvatarFileName").textContent = selectedAvatarFile?.name || "Chưa chọn ảnh";
-  const url = selectedAvatarFile ? URL.createObjectURL(selectedAvatarFile) : $("#profileAvatar").value.trim();
-  const preview = $("#profileAvatarPreview");
-  preview.src = url;
-  preview.style.display = url ? "block" : "none";
+$("#profileFields").addEventListener("click", event => {
+  const button = event.target.closest("[data-edit-profile-field]");
+  if (!button) return;
+
+  const field = button.dataset.editProfileField;
+  const row = button.closest(".profile-field");
+  const input = row.querySelector(`[data-profile-input="${field}"]`);
+  const display = row.querySelector(`[data-profile-value="${field}"]`);
+  row.classList.add("is-editing");
+  display.hidden = true;
+  input.hidden = false;
+  input.disabled = false;
+  input.focus();
+  if (input instanceof HTMLInputElement && input.type === "text") input.select();
 });
 
 $("#profileForm").addEventListener("submit", async (event) => {
   event.preventDefault();
 
-  if (selectedAvatarFile) {
-    const formData = new FormData();
-    formData.append("avatar", selectedAvatarFile);
-    const upload = await api("/api/profile/avatar", { method: "POST", body: formData });
-    if (!upload.response.ok) {
-      message($("#profileMessage"), upload.data.message || "Không thể tải ảnh lên.");
-      return;
-    }
-    $("#profileAvatar").value = upload.data.avatar_url;
+  const editingInputs = $$("#profileFields [data-profile-input]:not([disabled])");
+  const invalidInput = editingInputs.find(input => !input.checkValidity());
+  if (invalidInput) {
+    invalidInput.reportValidity();
+    return;
   }
 
-  const payload = {
-    full_name: $("#profileFullName").value,
-    birth_date: $("#profileBirthDate").value,
-    id_number: $("#profileIdNumber").value,
-    phone: $("#profilePhone").value,
-    avatar_url: $("#profileAvatar").value,
-  };
+  const phone = $("#profilePhone").value.trim();
+  const idNumber = $("#profileIdNumber").value.trim();
+  if (phone && !/^0[35789]\d{8}$/.test(phone)) {
+    message($("#profileMessage"), "Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 03, 05, 07, 08 hoặc 09.");
+    $("#profilePhone").focus();
+    return;
+  }
+  if (idNumber && !/^(?:\d{9}|\d{12}|(?=.*[A-Za-z])[A-Za-z0-9-]{6,20})$/.test(idNumber)) {
+    message($("#profileMessage"), "Số CCCD/CMND/Hộ chiếu không hợp lệ.");
+    $("#profileIdNumber").focus();
+    return;
+  }
 
-  const { response, data } = await api("/api/profile", {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
+  try {
+    const payload = {
+      full_name: $("#profileFullName").value.trim(),
+      gender: $("#profileGender").value,
+      birth_date: $("#profileBirthDate").value,
+      id_number: idNumber,
+      phone,
+      email: $("#profileEmail").value.trim(),
+      contact_name: $("#profileContactName").value.trim(),
+      contact_address: $("#profileContactAddress").value.trim(),
+    };
 
-  message($("#profileMessage"), data.message || "", response.ok);
+    const { response, data } = await api("/api/profile", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
 
-  if (response.ok) {
-    selectedAvatarFile = null;
-    $("#profileAvatarFile").value = "";
-    $("#profileAvatarFileName").textContent = "Chưa chọn ảnh";
+    message($("#profileMessage"), data.message || "", response.ok);
+    if (!response.ok) {
+      toast(data.message || "Không thể cập nhật thông tin.");
+      return;
+    }
+
     const user = data.user || {};
+    populateProfileForm(user);
     setUserDisplay(user);
-    $("#userName").textContent = user.full_name || $("#profileFullName").value;
-    $("#profileAvatarBadge").textContent = (user.full_name || $("#profileFullName").value)
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map(part => part[0])
-      .join("")
-      .toUpperCase() || "LH";
-
     closeModal("profileModal");
     toast(data.message || "Cập nhật thành công");
     await loadAll();
+  } catch (error) {
+    if (error.message === "Unauthorized") return;
+    console.error("Không thể cập nhật hồ sơ:", error);
+    message($("#profileMessage"), "Không thể cập nhật thông tin. Vui lòng thử lại.");
+    toast("Không thể cập nhật thông tin. Vui lòng thử lại.");
   }
 });
 
@@ -878,6 +905,7 @@ $("#roomListBody").addEventListener("click", handleRoomCardAction);
 $("#checkoutRoomsGrid").addEventListener("click", handleRoomCardAction);
 
 function getRoomStay(room) {
+  if (room.status !== "occupied") return null;
   return bookings.find(booking =>
     booking.room_code === room.code && ["booked", "checked_in"].includes(booking.status)
   );
