@@ -26,6 +26,13 @@
 .revenue-table thead th{background:#f9f2e9;color:#7a685d;text-transform:uppercase;letter-spacing:.8px}
 .revenue-table tbody tr:nth-child(even){background:#fcfaf7}
 .revenue-table tbody tr:last-child td{border-bottom:0}
+.revenue-chart-card{margin:24px 0 12px;padding:22px;min-width:0;border:1px solid var(--line);border-radius:14px;background:#fffdf9}
+.revenue-chart-card h3{margin:0;color:var(--brown);font-size:20px}
+.revenue-chart-description,.revenue-chart-message{margin:8px 0 16px;font-size:13px;line-height:1.6;color:var(--muted)}
+.revenue-chart-message:empty{display:none}
+.revenue-chart-message.is-error{color:#a33d2d}
+.revenue-chart-wrap{position:relative;width:100%;min-width:0;height:340px}
+@media(max-width:600px){.revenue-chart-card{padding:14px;margin-top:18px}.revenue-chart-card h3{font-size:17px}.revenue-chart-wrap{height:280px}}
 .stats-grid{margin-bottom:12px}
 .frontdesk-arrivals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0 0 18px}
 .frontdesk-arrivals>div{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:54px;padding:10px 15px;border:1px solid var(--line);border-radius:11px;background:var(--paper)}

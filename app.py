@@ -9,16 +9,18 @@ from pathlib import Path
 from flask import Flask, jsonify, render_template, request, send_file, session
 from dotenv import load_dotenv
 from reportlab.lib import colors
+from reportlab.graphics.shapes import Drawing, Line, Rect, String
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import cm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle, PageBreak
 from werkzeug.utils import secure_filename
 
 from backend.database import Database
+from backend.password_reset import PasswordResetService
 from backend.services import AuthService, RoomService, RoomTypeService, BookingService, DashboardService
 
 
@@ -40,6 +42,7 @@ app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
 database = Database(app.config["DATABASE_PATH"])
 
 auth_service = AuthService(database)
+password_reset_service = PasswordResetService(database)
 room_service = RoomService(database)
 room_type_service = RoomTypeService(database)
 booking_service = BookingService(database)
@@ -87,17 +90,14 @@ def login():
 @app.post("/api/register")
 def register():
     payload = request.get_json(silent=True) or {}
-    verification_code = str(payload.get("verification_code", "") or "").strip()
-    if verification_code:
-        ok, message = auth_service.register(payload.get("email", ""), verification_code)
-    else:
-        ok, message = auth_service.request_registration_code(
-            payload.get("full_name", ""),
-            payload.get("email", ""),
-            payload.get("password", ""),
-        )
-    status_code = 201 if ok and verification_code else 200 if ok else 400
-    return jsonify({"ok": ok, "message": message}), status_code
+    if not isinstance(payload, dict):
+        return jsonify({"ok": False, "message": "Thông tin đăng ký không hợp lệ."}), 400
+    ok, message = auth_service.register(
+        payload.get("full_name", ""),
+        payload.get("email", ""),
+        payload.get("password", ""),
+    )
+    return jsonify({"ok": ok, "message": message}), 201 if ok else 400
 
 
 @app.post("/api/logout")
@@ -141,28 +141,45 @@ def update_profile():
 
 @app.post("/api/profile/password")
 def update_password():
+    if not login_required():
+        return jsonify({"ok": False, "message": "Vui lòng đăng nhập."}), 401
     payload = request.get_json(silent=True) or {}
     email = str(payload.get("email", "") or "").strip().lower()
 
-    if login_required():
-        user_id = session["user"]["id"]
-        ok, message = auth_service.change_password(
-            user_id,
-            str(payload.get("current_password", "") or ""),
-            str(payload.get("new_password", "") or ""),
-            str(payload.get("confirm_password", "") or ""),
-            email=email or session["user"].get("email", ""),
-        )
-        return jsonify({"ok": ok, "message": message}), 200 if ok else 400
-
+    user_id = session["user"]["id"]
     ok, message = auth_service.change_password(
-        None,
+        user_id,
         str(payload.get("current_password", "") or ""),
         str(payload.get("new_password", "") or ""),
         str(payload.get("confirm_password", "") or ""),
-        email=email,
+        email=email or session["user"].get("email", ""),
     )
     return jsonify({"ok": ok, "message": message}), 200 if ok else 400
+
+
+@app.post("/api/password/forgot")
+def forgot_password():
+    payload = request.get_json(silent=True)
+    payload = payload if isinstance(payload, dict) else {}
+    ok, message, status = password_reset_service.request_reset(payload.get("email"), request.remote_addr)
+    return jsonify({"ok": ok, "message": message}), status
+
+
+@app.post("/api/password/verify")
+@app.post("/api/password/reset")
+def reset_password():
+    payload = request.get_json(silent=True)
+    payload = payload if isinstance(payload, dict) else {}
+    verify_only = request.path.endswith("/verify")
+    ok, message, status = password_reset_service.reset(
+        payload.get("token"), payload.get("password"), payload.get("confirmation"),
+        request.remote_addr, verify_only=verify_only,
+    )
+    if ok and not verify_only:
+        session.clear()
+    response = jsonify({"ok": ok, "message": message})
+    response.headers["Cache-Control"] = "no-store"
+    return response, status
 
 
 @app.post("/api/profile/avatar")
@@ -201,6 +218,8 @@ def revenue_statistics():
     if raw_year:
         try:
             selected_year = int(raw_year)
+            if not 1 <= selected_year <= 9999:
+                raise ValueError
         except ValueError:
             return jsonify({"ok": False, "message": "Năm thống kê không hợp lệ."}), 400
         return jsonify({"ok": True, **dashboard_service.get_monthly_revenue(selected_year)})
@@ -233,6 +252,25 @@ def format_vnd(amount: float) -> str:
     return f"{round(float(amount or 0)):,}".replace(",", ".") + " đ"
 
 
+def build_revenue_pdf_chart(months, font_name):
+    drawing = Drawing(452, 270)
+    values = [float(item["total"] or 0) for item in months]
+    ceiling = max(values) * 1.1 if max(values) > 0 else 4
+    left, bottom, width, height = 80, 36, 360, 205
+    for step in range(5):
+        y = bottom + height * step / 4
+        drawing.add(Line(left, y, left + width, y, strokeColor=colors.HexColor("#EDE5DA")))
+        label = f"{ceiling * step / 4:,.0f}".replace(",", ".")
+        drawing.add(String(left - 8, y - 3, label, fontName=font_name, fontSize=7, textAnchor="end"))
+    drawing.add(String(left, 257, "Thu nhập (VNĐ)", fontName=font_name, fontSize=9))
+    for index, value in enumerate(values):
+        x = left + index * width / 12
+        drawing.add(Rect(x + 6, bottom, 18, max(value, 0) / ceiling * height,
+                         fillColor=colors.HexColor("#6E4B2D" if value > 0 and value == max(values) else "#B58B59"), strokeColor=None))
+        drawing.add(String(x + 15, 20, f"T{index + 1}", fontName=font_name, fontSize=8, textAnchor="middle"))
+    return drawing
+
+
 def draw_pdf_footer(canvas, document) -> None:
     """Draw a restrained LumiHotel footer on every generated report page."""
     canvas.saveState()
@@ -259,6 +297,8 @@ def export_revenue_statistics_pdf():
     raw_year = request.args.get("year", "").strip()
     try:
         selected_year = int(raw_year) if raw_year else None
+        if selected_year is not None and not 1 <= selected_year <= 9999:
+            raise ValueError
     except ValueError:
         return jsonify({"ok": False, "message": "Năm thống kê không hợp lệ."}), 400
 
@@ -433,6 +473,14 @@ def export_revenue_statistics_pdf():
             ),
             Spacer(1, 0.08 * cm),
             Table([["", signature]], colWidths=[9.65 * cm, 6.3 * cm]),
+            PageBreak(),
+            Paragraph("BIỂU ĐỒ THU NHẬP THEO THÁNG", title_style),
+            Paragraph(f"Theo dõi biến động doanh thu trong năm {report['year']}", center_style),
+            Spacer(1, 0.6 * cm),
+            build_revenue_pdf_chart(months, font_name),
+            Spacer(1, 0.4 * cm),
+            Paragraph("Cột nâu đậm thể hiện tháng có doanh thu cao nhất." if has_revenue else "Năm được chọn chưa có doanh thu.", small_style),
+            Paragraph("Số tiền chính xác của từng tháng được trình bày trong bảng chi tiết.", small_style),
         ], onFirstPage=draw_pdf_footer, onLaterPages=draw_pdf_footer)
         buffer.seek(0)
         return send_file(
@@ -546,6 +594,61 @@ def delete_room(room_id):
 
     ok, message = room_service.delete_room(room_id)
     return jsonify({"ok": ok, "message": message}), 200 if ok else 400
+
+
+def history_access_error():
+    user = login_required()
+    if not user:
+        return jsonify({"ok": False, "message": "Vui lòng đăng nhập để xem lịch sử."}), 401
+    profile = auth_service.get_profile(user.get("id"))
+    # Staff already access booking/customer data through /api/bookings.
+    # Keep history consistent with those operational roles; check the live account.
+    if not profile or profile["role"] not in ("manager", "staff"):
+        return jsonify({"ok": False, "message": "Tài khoản không có quyền xem lịch sử đặt phòng."}), 403
+    return None
+
+
+@app.get("/booking-history")
+def booking_history_page():
+    # The shell contains no customer data; both data endpoints enforce permission.
+    return render_template("booking_history.html")
+
+
+@app.get("/api/booking-history")
+def booking_history():
+    error = history_access_error()
+    if error is not None:
+        return error
+    try:
+        year = int(request.args.get("year", ""))
+        month = int(request.args.get("month", ""))
+        page = int(request.args.get("page", "1"))
+        status = request.args.get("status", "")
+        payment = request.args.get("payment", "")
+        search = request.args.get("search", "").strip()
+        if not (1 <= year <= 9999 and 1 <= month <= 12 and 1 <= page <= 1000000):
+            raise ValueError
+        if status not in ("", "booked", "checked_in", "checked_out", "cancelled") or payment not in ("", "unknown") or len(search) > 200:
+            raise ValueError
+    except ValueError:
+        return jsonify({"ok": False, "message": "Tháng, năm hoặc bộ lọc không hợp lệ."}), 400
+    result = booking_service.get_revenue_history(year, month, search, status, page)
+    response = jsonify({"ok": True, **result})
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@app.get("/api/booking-history/<int:booking_id>")
+def booking_history_detail(booking_id):
+    error = history_access_error()
+    if error is not None:
+        return error
+    booking = booking_service.get_history_detail(booking_id)
+    if booking is None:
+        return jsonify({"ok": False, "message": "Không tìm thấy đơn đặt phòng."}), 404
+    response = jsonify({"ok": True, "booking": booking})
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.get("/api/bookings")

@@ -19,6 +19,8 @@ let chart;
 let selectedRoomImageFile = null;
 let selectedRevenueYear = new Date().getFullYear();
 let isExportingRevenuePdf = false;
+let revenueChart;
+let revenueRequestId = 0;
 
 const statusMap = {
   available: "Trống",
@@ -170,6 +172,12 @@ function showDashboard(user) {
   setUserDisplay(user);
   loadProfile();
   loadAll();
+  const returnParams = new URLSearchParams(window.location.search);
+  const returnYear = Number(returnParams.get("year"));
+  if (returnParams.get("view") === "revenue" && Number.isInteger(returnYear) && returnYear >= 1 && returnYear <= 9999) {
+    selectedRevenueYear = returnYear;
+    setView("revenue");
+  }
 }
 
 async function loadProfile() {
@@ -260,53 +268,21 @@ $("#registerForm").addEventListener("submit", async (event) => {
       full_name: $("#registerName").value,
       email: $("#registerEmail").value,
       password: $("#registerPassword").value,
-      verification_code: registrationCodeRequested ? $("#registerVerificationCode").value.trim() : "",
     }),
   });
-
-  if (response.ok && !registrationCodeRequested) {
-    registrationCodeRequested = true;
-    $("#registerVerificationRow").classList.remove("hidden");
-    $("#registerName").disabled = true;
-    $("#registerEmail").disabled = true;
-    $("#registerPassword").disabled = true;
-    $("#registerSubmitBtn").textContent = "Xác minh và tạo tài khoản";
-    message($("#registerMessage"), data.message || "", true);
-    toast("Đã gửi mã xác minh. Hãy kiểm tra email.");
-    return;
-  }
 
   message($("#registerMessage"), data.message || "", response.ok);
 
   if (response.ok) {
-    registrationCodeRequested = false;
     setTimeout(() => {
       registerPanel.classList.add("hidden");
       loginPanel.classList.remove("hidden");
       $("#loginEmail").value = $("#registerEmail").value;
       $("#registerForm").reset();
-      $("#registerVerificationRow").classList.add("hidden");
-      $("#registerName").disabled = false;
-      $("#registerEmail").disabled = false;
-      $("#registerPassword").disabled = false;
-      $("#registerSubmitBtn").textContent = "Gửi mã xác minh";
+      message($("#loginMessage"), data.message || "", true);
+      message($("#registerMessage"), "");
     }, 700);
   }
-});
-
-let registrationCodeRequested = false;
-
-$("#registerResendCodeBtn").addEventListener("click", async () => {
-  const { response, data } = await api("/api/register", {
-    method: "POST",
-    body: JSON.stringify({
-      full_name: $("#registerName").value,
-      email: $("#registerEmail").value,
-      password: $("#registerPassword").value,
-    }),
-  });
-  message($("#registerMessage"), data.message || "", response.ok);
-  if (response.ok) toast("Đã gửi lại mã xác minh. Hãy kiểm tra email.");
 });
 
 $("#showRegister").addEventListener("click", () => {
@@ -332,18 +308,6 @@ $("#topProfileBtn").addEventListener("click", async () => {
 function preparePasswordModal() {
   $("#passwordForm").reset();
   $("#passwordMessage").textContent = "";
-  const loggedIn = !!document.getElementById("dashboardView") && !document.getElementById("dashboardView").classList.contains("hidden");
-  const emailRow = document.getElementById("passwordEmailRow");
-  const emailInput = document.getElementById("passwordEmail");
-
-  if (loggedIn) {
-    emailRow.style.display = "none";
-    emailInput.value = "";
-  } else {
-    emailRow.style.display = "block";
-    const loginEmail = $("#loginEmail").value.trim();
-    emailInput.value = loginEmail;
-  }
 
 }
 
@@ -354,8 +318,10 @@ $("#openPasswordModalBtn").addEventListener("click", () => {
 });
 
 $("#openPasswordModalFromLogin").addEventListener("click", () => {
-  preparePasswordModal();
-  openModal("passwordModal");
+  $("#forgotPasswordForm").reset();
+  $("#recoveryEmail").value = $("#loginEmail").value.trim();
+  message($("#recoveryMessage"), "");
+  openModal("forgotPasswordModal");
 });
 
 $("#logoutBtn").addEventListener("click", async () => {
@@ -446,16 +412,9 @@ $("#passwordForm").addEventListener("submit", async (event) => {
   const currentPassword = $("#currentPassword").value;
   const newPassword = $("#newPassword").value;
   const confirmPassword = $("#confirmPassword").value;
-  const loggedIn = !!document.getElementById("dashboardView") && !document.getElementById("dashboardView").classList.contains("hidden");
-  const email = $("#passwordEmail").value.trim() || (window.__lumiCurrentUser?.email || $("#loginEmail").value.trim());
 
   if (!currentPassword || !newPassword || !confirmPassword) {
     message($("#passwordMessage"), "Vui lòng nhập đầy đủ các trường bắt buộc.");
-    return;
-  }
-
-  if (!loggedIn && !email) {
-    message($("#passwordMessage"), "Vui lòng nhập email để xác thực tài khoản.");
     return;
   }
 
@@ -475,12 +434,6 @@ $("#passwordForm").addEventListener("submit", async (event) => {
     confirm_password: confirmPassword,
   };
 
-  if (!loggedIn) {
-    payload.email = email;
-  } else {
-    payload.email = window.__lumiCurrentUser?.email || $("#loginEmail").value.trim();
-  }
-
   const { response, data } = await api("/api/profile/password", {
     method: "POST",
     body: JSON.stringify(payload),
@@ -494,6 +447,79 @@ $("#passwordForm").addEventListener("submit", async (event) => {
     toast(data.message || "Cập nhật mật khẩu thành công");
   }
 });
+
+let recoveryToken = "";
+
+$("#forgotPasswordForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = event.submitter;
+  if (button) button.disabled = true;
+  try {
+    const { response, data } = await api("/api/password/forgot", {
+      method: "POST", body: JSON.stringify({ email: $("#recoveryEmail").value.trim() }),
+    });
+    message($("#recoveryMessage"), data.message, response.ok);
+  } catch {
+    message($("#recoveryMessage"), "Không thể kết nối. Vui lòng thử lại.");
+  } finally {
+    if (button) button.disabled = false;
+  }
+});
+
+async function openRecoveryLink() {
+  if (!window.location.hash.startsWith("#reset-password=")) return;
+  recoveryToken = window.location.hash.slice("#reset-password=".length);
+  history.replaceState(null, "", window.location.pathname + window.location.search);
+  openModal("resetPasswordModal");
+  $("#resetPasswordForm").classList.add("hidden");
+  try {
+    const { response, data } = await api("/api/password/verify", {
+      method: "POST", body: JSON.stringify({ token: recoveryToken }),
+    });
+    message($("#resetMessage"), data.message, response.ok);
+    $("#resetPasswordForm").classList.toggle("hidden", !response.ok);
+  } catch {
+    message($("#resetMessage"), "Không thể kiểm tra liên kết. Vui lòng mở lại liên kết trong email.");
+  }
+}
+
+$("#resetPasswordForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = event.submitter;
+  if (button) button.disabled = true;
+  try {
+    const { response, data } = await api("/api/password/reset", {
+      method: "POST", body: JSON.stringify({
+        token: recoveryToken,
+        password: $("#recoveryPassword").value,
+        confirmation: $("#recoveryConfirmation").value,
+      }),
+    });
+    message($("#resetMessage"), data.message, response.ok);
+    if (response.ok) {
+      recoveryToken = "";
+      $("#resetPasswordForm").reset();
+      $("#resetPasswordForm").classList.add("hidden");
+      showLogin();
+      registerPanel.classList.add("hidden");
+      loginPanel.classList.remove("hidden");
+      message($("#loginMessage"), data.message, true);
+    }
+  } catch {
+    message($("#resetMessage"), "Không thể kết nối. Vui lòng thử lại.");
+  } finally {
+    if (button) button.disabled = false;
+  }
+});
+
+$("#recoveryBackToLogin").addEventListener("click", () => {
+  closeModal("resetPasswordModal");
+  showLogin();
+  registerPanel.classList.add("hidden");
+  loginPanel.classList.remove("hidden");
+});
+window.addEventListener("hashchange", openRecoveryLink);
+window.addEventListener("DOMContentLoaded", openRecoveryLink);
 
 function setView(view) {
   $$(".nav-item").forEach((item) => item.classList.toggle("active", item.dataset.view === view || (item.dataset.view === "rooms" && ["room-list", "room-types"].includes(view))));
@@ -552,16 +578,38 @@ function buildRevenueYearOptions() {
 
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 7 }, (_, index) => currentYear - 3 + index);
+  if (!years.includes(selectedRevenueYear)) years.push(selectedRevenueYear);
+  years.sort((a, b) => a - b);
   select.innerHTML = years.map((year) => `<option value="${year}">${year}</option>`).join("");
   select.value = String(selectedRevenueYear || currentYear);
 }
 
 async function fetchRevenueStatistics(year = selectedRevenueYear) {
-  const { response, data } = await api(`/api/revenue-statistics?year=${encodeURIComponent(year)}`);
-  if (response.ok) {
+  const requestId = ++revenueRequestId;
+  selectedRevenueYear = Number(year);
+  clearRevenueStatistics(year, "Đang tải dữ liệu thu nhập…");
+  try {
+    const { response, data } = await api(`/api/revenue-statistics?year=${encodeURIComponent(year)}`);
+    if (requestId !== revenueRequestId) return;
+    if (!response.ok) throw new Error(data.message || "Không thể tải thống kê thu nhập.");
+    if (Number(data.year) !== Number(year) || !Array.isArray(data.months)) {
+      throw new Error("Dữ liệu thống kê không hợp lệ.");
+    }
     renderRevenueStatistics(data);
+  } catch (error) {
+    if (requestId !== revenueRequestId) return;
+    clearRevenueStatistics(year, "Không thể tải thống kê thu nhập. Vui lòng chọn lại năm để thử lại.", true);
   }
-  return { response, data };
+}
+
+function clearRevenueStatistics(year, text, isError = false) {
+  if (revenueChart) revenueChart.destroy();
+  revenueChart = null;
+  $("#revenueYearSummary").textContent = `Tổng thu nhập cả năm ${year}`;
+  $("#revenueYearValue").textContent = "—";
+  $("#revenueTableBody").innerHTML = "";
+  $("#revenueChartMessage").textContent = text;
+  $("#revenueChartMessage").classList.toggle("is-error", isError);
 }
 
 async function exportRevenuePdf() {
@@ -616,12 +664,12 @@ $("#exportRevenuePdfBtn").addEventListener("click", async () => {
 
 async function loadAll() {
   try {
-    const [roomsResult, roomTypesResult, bookingsResult, dashboardResult, revenueResult] = await Promise.all([
+    const [roomsResult, roomTypesResult, bookingsResult, dashboardResult] = await Promise.all([
       api("/api/rooms"),
       api("/api/room-types"),
       api("/api/bookings"),
       api("/api/dashboard"),
-      api(`/api/revenue-statistics?year=${encodeURIComponent(selectedRevenueYear)}`),
+      fetchRevenueStatistics(selectedRevenueYear),
     ]);
 
     rooms = roomsResult.data.rooms || [];
@@ -638,9 +686,6 @@ async function loadAll() {
     if (dashboardResult.response.ok) {
       renderDashboard(dashboardResult.data);
     }
-    if (revenueResult.response.ok) {
-      renderRevenueStatistics(revenueResult.data);
-    }
     fillBookingRooms();
   } catch (error) {
     console.error(error);
@@ -651,7 +696,25 @@ function renderRevenueStatistics(data = {}) {
   const year = Number(data.year || selectedRevenueYear || new Date().getFullYear());
   selectedRevenueYear = year;
   const total = Number(data.total || 0);
-  const rows = Array.isArray(data.months) ? data.months : Array.from({ length: 12 }, (_, index) => ({ month: index + 1, total: 0 }));
+  const seenMonths = new Set();
+  if (!Number.isFinite(total) || !Array.isArray(data.months) || data.months.some(item => {
+    if (!item) return true;
+    const month = Number(item.month);
+    if (!Number.isInteger(month) || month < 1 || month > 12 || seenMonths.has(month)
+        || typeof item.total !== "number" || !Number.isFinite(item.total)) return true;
+    seenMonths.add(month);
+    return false;
+  })) {
+    throw new Error("Dữ liệu thống kê không hợp lệ.");
+  }
+  const rows = Array.from({ length: 12 }, (_, index) => ({
+    month: index + 1,
+    total: Number(data.months?.find(item => Number(item.month) === index + 1)?.total || 0),
+  }));
+  const monthlyTotal = rows.reduce((sum, item) => sum + item.total, 0);
+  if (Math.abs(monthlyTotal - total) > Math.max(0.000001, Math.abs(total) * Number.EPSILON * 12)) {
+    throw new Error("Tổng thu nhập không khớp dữ liệu theo tháng.");
+  }
 
   const select = document.getElementById("revenueYearSelect");
   if (select) {
@@ -662,10 +725,60 @@ function renderRevenueStatistics(data = {}) {
   $("#revenueYearValue").textContent = money(total);
   $("#revenueTableBody").innerHTML = rows.map(item => `
     <tr>
-      <td>Tháng ${item.month}</td>
+      <td><a href="/booking-history?year=${year}&month=${item.month}">Tháng ${item.month}</a></td>
       <td>${money(item.total || 0)}</td>
     </tr>
   `).join("");
+  renderRevenueChart(rows, year);
+}
+
+function renderRevenueChart(rows, year) {
+  if (revenueChart) revenueChart.destroy();
+  revenueChart = null;
+  const values = rows.map(item => item.total);
+  const maximum = Math.max(...values);
+  const status = $("#revenueChartMessage");
+  status.classList.remove("is-error");
+  status.textContent = values.every(value => value === 0) ? `Năm ${year} chưa có doanh thu.` : "";
+  if (typeof Chart === "undefined") {
+    status.textContent = "Không tải được thư viện biểu đồ. Bạn vẫn có thể xem dữ liệu trong bảng và xuất PDF.";
+    status.classList.add("is-error");
+    return;
+  }
+  revenueChart = new Chart($("#revenueChart"), {
+    type: "bar",
+    data: {
+      labels: rows.map(item => `Tháng ${item.month}`),
+      datasets: [{
+        label: "Thu nhập", data: values,
+        backgroundColor: values.map(value => value > 0 && value === maximum ? "#6e4b2d" : "#b58b59"),
+        hoverBackgroundColor: "#8c623e", borderRadius: 6, maxBarThickness: 48,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      onClick: (_event, elements) => {
+        if (!elements.length) return;
+        const month = rows[elements[0].index].month;
+        window.location.assign(`/booking-history?year=${year}&month=${month}`);
+      },
+      onHover: (event, elements) => {
+        if (event.native?.target) event.native.target.style.cursor = elements.length ? "pointer" : "default";
+      },
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: context => `Thu nhập: ${money(context.parsed.y)}` } },
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: false,
+          callback: function(value) { return this.chart.width < 600 ? `T${Number(value) + 1}` : this.getLabelForValue(value); } } },
+        y: { beginAtZero: true, title: { display: true, text: "VNĐ" },
+          grid: { color: "rgba(110,75,45,.09)" }, border: { display: false },
+          ticks: { maxTicksLimit: 6, callback: value => new Intl.NumberFormat("vi-VN", { notation: "compact", maximumFractionDigits: 1 }).format(value) } },
+      },
+    },
+  });
 }
 
 function renderDashboard(summary) {

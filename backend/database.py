@@ -31,6 +31,21 @@ class Database:
     def initialize(self) -> None:
         with self.connect() as connection:
             connection.execute("""
+                CREATE TABLE IF NOT EXISTS password_resets (
+                    token_hash TEXT PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    expires_at REAL NOT NULL
+                )
+            """)
+            connection.execute("""
+                CREATE TABLE IF NOT EXISTS password_reset_limits (
+                    bucket TEXT PRIMARY KEY,
+                    started_at REAL NOT NULL,
+                    attempts INTEGER NOT NULL
+                )
+            """)
+            connection.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     full_name TEXT NOT NULL,

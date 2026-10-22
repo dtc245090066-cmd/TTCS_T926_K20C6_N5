@@ -76,11 +76,7 @@
             <button type="button" class="password-toggle" data-target="registerPassword" aria-label="Hiện mật khẩu" title="Hiện mật khẩu">👁</button>
           </div>
         </label>
-        <div id="registerVerificationRow" class="hidden">
-          <label>Mã xác minh<input id="registerVerificationCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"></label>
-          <button class="link-button" id="registerResendCodeBtn" type="button">Gửi lại mã</button>
-        </div>
-        <button class="primary-btn wide" id="registerSubmitBtn" type="submit">Gửi mã xác minh</button>
+        <button class="primary-btn wide" id="registerSubmitBtn" type="submit">Tạo tài khoản</button>
       </form>
       <p id="registerMessage" class="form-message"></p>
       <button class="link-button" id="showLogin">← Quay lại đăng nhập</button>
@@ -280,6 +276,15 @@
             <tbody id="revenueTableBody"></tbody>
           </table>
         </div>
+        <article class="revenue-chart-card" aria-labelledby="revenueChartTitle">
+          <h3 id="revenueChartTitle">Biểu đồ thu nhập theo tháng</h3>
+          <p class="revenue-chart-description">Theo dõi biến động doanh thu trong năm được chọn</p>
+          <p class="revenue-chart-description">Bấm vào cột hoặc tên tháng trong bảng để xem lịch sử đặt phòng.</p>
+          <p id="revenueChartMessage" class="revenue-chart-message" role="status" aria-live="polite"></p>
+          <div class="revenue-chart-wrap">
+            <canvas id="revenueChart" role="img" aria-label="Thu nhập 12 tháng; số tiền chi tiết nằm trong bảng phía trên."></canvas>
+          </div>
+        </article>
       </div>
     </section>
 
@@ -467,13 +472,40 @@
   </div>
 </div>
 
+<div class="modal" id="forgotPasswordModal">
+  <div class="modal-box">
+    <button class="modal-close" data-close="forgotPasswordModal">×</button>
+    <span class="section-label">KHÔI PHỤC TÀI KHOẢN</span>
+    <h3>Quên mật khẩu</h3>
+    <form id="forgotPasswordForm">
+      <label>Email<input id="recoveryEmail" type="email" required maxlength="254" placeholder="Nhập email tài khoản" autocomplete="email"></label>
+      <p id="recoveryMessage" class="form-message" aria-live="polite"></p>
+      <div class="form-actions"><button type="button" class="ghost-btn" data-close="forgotPasswordModal">Hủy</button><button class="primary-btn" type="submit">Đặt lại mật khẩu</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal" id="resetPasswordModal">
+  <div class="modal-box">
+    <button class="modal-close" data-close="resetPasswordModal">×</button>
+    <span class="section-label">KHÔI PHỤC TÀI KHOẢN</span>
+    <h3>Đặt lại mật khẩu</h3>
+    <p id="resetMessage" class="form-message" aria-live="polite"></p>
+    <form id="resetPasswordForm" class="hidden">
+      <label>Mật khẩu mới<input id="recoveryPassword" type="password" required minlength="8" maxlength="128" autocomplete="new-password"></label>
+      <label>Xác nhận mật khẩu mới<input id="recoveryConfirmation" type="password" required minlength="8" maxlength="128" autocomplete="new-password"></label>
+      <div class="form-actions"><button type="button" class="ghost-btn" data-close="resetPasswordModal">Hủy</button><button class="primary-btn" type="submit">Đặt lại mật khẩu</button></div>
+    </form>
+    <button type="button" class="link-button" id="recoveryBackToLogin">Quay lại đăng nhập</button>
+  </div>
+</div>
+
 <div class="modal" id="passwordModal">
   <div class="modal-box">
     <button class="modal-close" data-close="passwordModal">×</button>
     <span class="section-label">BẢO MẬT</span>
     <h3>Đổi mật khẩu</h3>
     <form id="passwordForm">
-      <label id="passwordEmailRow">Email<input id="passwordEmail" type="email" placeholder="Nhập email tài khoản"></label>
       <label class="password-input-group">Mật khẩu hiện tại
         <div class="password-field">
           <input id="currentPassword" type="password" required placeholder="Nhập mật khẩu hiện tại">

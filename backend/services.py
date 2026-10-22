@@ -1,21 +1,24 @@
 from __future__ import annotations
 
 import math
-import os
 import random
 import re
-import secrets
-import smtplib
 import sqlite3
-import threading
-import time
+from contextlib import closing
 from datetime import date, datetime
-from email.message import EmailMessage
 from typing import Any
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from backend.database import Database
+
+REVENUE_DATE_FILTER = """
+    check_out IS NOT NULL AND length(check_out) = 10
+    AND check_out GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+    AND strftime('%Y-%m-%d', check_out) = check_out
+    AND CAST(strftime('%Y', check_out) AS INTEGER) = ?
+"""
+REVENUE_STATUSES = "('booked', 'checked_in', 'checked_out')"
 
 
 class AuthService:
@@ -225,7 +228,7 @@ class AuthService:
 
         return True, "Cập nhật mật khẩu thành công."
 
-    def request_registration_code(self, full_name: str, email: str, password: str) -> tuple[bool, str]:
+    def register(self, full_name: str, email: str, password: str) -> tuple[bool, str]:
         if not all(isinstance(value, str) for value in (full_name, email, password)):
             return False, "Thông tin đăng ký không hợp lệ."
 
@@ -238,7 +241,7 @@ class AuthService:
         if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
             return False, "Vui lòng nhập email hợp lệ."
 
-        if len(password) < 8 or len(password) > 128:
+        if not password.strip() or len(password) < 8 or len(password) > 128:
             return False, "Mật khẩu cần có từ 8 đến 128 ký tự."
 
         with self.database.connect() as connection:
@@ -249,106 +252,16 @@ class AuthService:
         if existing_user is not None:
             return False, "Email này đã được đăng ký."
 
-        code = f"{secrets.randbelow(900000) + 100000}"
-        with REGISTRATION_VERIFICATION_LOCK:
-            REGISTRATION_VERIFICATION_CODES[email] = {
-                "code": code,
-                "expires_at": time.time() + 300,
-                "full_name": full_name,
-                "password_hash": generate_password_hash(password),
-            }
-
-        if not send_registration_verification_email(email, code):
-            with REGISTRATION_VERIFICATION_LOCK:
-                REGISTRATION_VERIFICATION_CODES.pop(email, None)
-            return False, "Không thể gửi mã xác minh đến email. Vui lòng kiểm tra cấu hình SMTP."
-
-        return True, "Mã xác minh đã được gửi đến email của bạn. Mã có hiệu lực trong 5 phút."
-
-    def register(self, email: str, verification_code: str) -> tuple[bool, str]:
-        if not isinstance(email, str) or not isinstance(verification_code, str):
-            return False, "Thông tin xác minh không hợp lệ."
-        normalized_email = (email or "").strip().lower()
-        submitted_code = (verification_code or "").strip()
-        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", normalized_email):
-            return False, "Vui lòng nhập email hợp lệ."
-        if not re.fullmatch(r"\d{6}", submitted_code):
-            return False, "Vui lòng nhập mã xác minh gồm 6 chữ số."
-
-        with REGISTRATION_VERIFICATION_LOCK:
-            record = REGISTRATION_VERIFICATION_CODES.get(normalized_email)
-            if record is None:
-                return False, "Bạn chưa yêu cầu mã hoặc mã đã hết hạn. Vui lòng gửi lại mã."
-            if time.time() > float(record["expires_at"]):
-                REGISTRATION_VERIFICATION_CODES.pop(normalized_email, None)
-                return False, "Mã xác minh đã hết hạn. Vui lòng yêu cầu mã mới."
-            if not secrets.compare_digest(str(record["code"]), submitted_code):
-                return False, "Mã xác minh không đúng với email này."
-
-            try:
-                with self.database.connect() as connection:
-                    connection.execute(
-                        "INSERT INTO users(full_name, email, password_hash, role) VALUES (?, ?, ?, 'staff')",
-                        (record["full_name"], normalized_email, record["password_hash"]),
-                    )
-            except sqlite3.IntegrityError:
-                REGISTRATION_VERIFICATION_CODES.pop(normalized_email, None)
-                return False, "Email này đã được đăng ký."
-
-            REGISTRATION_VERIFICATION_CODES.pop(normalized_email, None)
+        try:
+            with self.database.connect() as connection:
+                connection.execute(
+                    "INSERT INTO users(full_name, email, password_hash, role) VALUES (?, ?, ?, 'staff')",
+                    (full_name, email, generate_password_hash(password)),
+                )
+        except sqlite3.IntegrityError:
+            return False, "Email này đã được đăng ký."
 
         return True, "Tạo tài khoản thành công. Bạn có thể đăng nhập."
-
-
-REGISTRATION_VERIFICATION_CODES: dict[str, dict[str, Any]] = {}
-REGISTRATION_VERIFICATION_LOCK = threading.Lock()
-
-
-def normalize_smtp_settings() -> dict[str, str]:
-    smtp_username = (os.environ.get("SMTP_EMAIL") or os.environ.get("SMTP_USERNAME") or "").strip()
-    smtp_password = (os.environ.get("SMTP_PASSWORD") or "").replace(" ", "").strip()
-    smtp_from = (os.environ.get("SMTP_FROM") or smtp_username or "no-reply@lumihotel.local").strip()
-    return {
-        "host": (os.environ.get("SMTP_HOST") or "smtp.gmail.com").strip(),
-        "port": str(os.environ.get("SMTP_PORT") or "587").strip(),
-        "username": smtp_username,
-        "password": smtp_password,
-        "from": smtp_from,
-    }
-
-
-def send_registration_verification_email(email: str, code: str) -> bool:
-    return send_verification_email(email, code, "Mã xác minh đăng ký LumiHotel")
-
-
-def send_verification_email(email: str, code: str, subject: str) -> bool:
-    settings = normalize_smtp_settings()
-    smtp_host = settings["host"]
-    smtp_port = int(settings["port"])
-    smtp_username = settings["username"]
-    smtp_password = settings["password"]
-    smtp_from = settings["from"]
-
-    if not smtp_username or not smtp_password:
-        return False
-
-    try:
-        message = EmailMessage()
-        message["Subject"] = subject
-        message["From"] = smtp_from
-        message["To"] = email
-        message.set_content(
-            "Mã xác minh của bạn là: "
-            f"{code}\n\nMã này có hiệu lực trong 5 phút."
-        )
-
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.starttls()
-            server.login(smtp_username, smtp_password)
-            server.send_message(message)
-        return True
-    except Exception:
-        return False
 
 
 class RoomTypeService:
@@ -775,6 +688,60 @@ class BookingService:
     def __init__(self, database: Database) -> None:
         self.database = database
 
+    def get_revenue_history(self, year, month, search="", status="", page=1):
+        period = REVENUE_DATE_FILTER + " AND CAST(strftime('%m', check_out) AS INTEGER) = ?"
+        params = [year, month]
+        joins = """ FROM bookings b
+            LEFT JOIN rooms r ON r.id = b.room_id
+            LEFT JOIN room_types rt ON rt.id = r.room_type_id
+            LEFT JOIN customers c ON c.id = b.customer_id """
+        filters = period
+        if status:
+            filters += " AND b.status = ?"
+            params.append(status)
+        if search:
+            filters += " AND (instr(casefold(b.code), ?) > 0 OR instr(casefold(b.customer_name), ?) > 0 OR instr(COALESCE(c.phone, ''), ?) > 0)"
+            params.extend([search.casefold(), search.casefold(), search])
+        with closing(self.database.connect()) as connection:
+            connection.execute("BEGIN")
+            connection.create_function("casefold", 1, lambda value: (value or "").casefold())
+            summary = dict(connection.execute(f"""
+                SELECT COUNT(*) AS booking_count, COALESCE(SUM(total), 0) AS booking_value,
+                    COALESCE(SUM(CASE WHEN status IN {REVENUE_STATUSES} THEN total ELSE 0 END), 0) AS revenue,
+                    SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_count
+                FROM bookings WHERE {period}
+            """, (year, month)).fetchone())
+            count = connection.execute("SELECT COUNT(*)" + joins + " WHERE " + filters, params).fetchone()[0]
+            pages = max(1, math.ceil(count / 20))
+            page = min(page, pages)
+            rows = connection.execute("""SELECT b.*, c.phone AS customer_phone,
+                c.email AS customer_email, r.code AS room_code, r.name AS room_name,
+                rt.name AS room_type_name""" + joins + " WHERE " + filters
+                + " ORDER BY b.check_out DESC, b.id DESC LIMIT 20 OFFSET ?", params + [(page - 1) * 20]).fetchall()
+        return {"year": year, "month": month, "summary": summary,
+                "bookings": [self._history_booking(row) for row in rows],
+                "page": page, "pages": pages, "count": count}
+
+    @staticmethod
+    def _history_booking(row):
+        item = dict(row)
+        try:
+            item["nights"] = (date.fromisoformat(item["check_out"]) - date.fromisoformat(item["check_in"])).days
+        except (TypeError, ValueError):
+            item["nights"] = None
+        return item
+
+    def get_history_detail(self, booking_id):
+        with closing(self.database.connect()) as connection:
+            row = connection.execute("""SELECT b.*, c.phone AS customer_phone,
+                c.email AS customer_email, r.code AS room_code, r.name AS room_name,
+                rt.name AS room_type_name
+                FROM bookings b LEFT JOIN rooms r ON r.id = b.room_id
+                LEFT JOIN room_types rt ON rt.id = r.room_type_id
+                LEFT JOIN customers c ON c.id = b.customer_id WHERE b.id = ?
+            """, (booking_id,)).fetchone()
+        return self._history_booking(row) if row else None
+
     def list_bookings(self) -> list[dict[str, Any]]:
         with self.database.connect() as connection:
             rows = connection.execute(
@@ -965,16 +932,11 @@ class DashboardService:
 
         with self.database.connect() as connection:
             rows = connection.execute(
-                """
+                f"""
                 SELECT CAST(strftime('%m', check_out) AS INTEGER) AS month,
                        COALESCE(SUM(total), 0) AS total
                 FROM bookings
-                WHERE status IN ('booked', 'checked_in', 'checked_out')
-                  AND check_out IS NOT NULL
-                  AND length(check_out) = 10
-                  AND check_out GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
-                  AND strftime('%Y-%m-%d', check_out) = check_out
-                  AND CAST(strftime('%Y', check_out) AS INTEGER) = ?
+                WHERE status IN {REVENUE_STATUSES} AND {REVENUE_DATE_FILTER}
                 GROUP BY CAST(strftime('%m', check_out) AS INTEGER)
                 ORDER BY month ASC
                 """,

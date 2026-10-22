@@ -1,10 +1,9 @@
 import os
 import tempfile
 import unittest
-from unittest.mock import patch
 
 from backend.database import Database
-from backend.services import AuthService, normalize_smtp_settings
+from backend.services import AuthService
 
 
 class AuthServiceProfileTests(unittest.TestCase):
@@ -20,17 +19,8 @@ class AuthServiceProfileTests(unittest.TestCase):
         self.database = Database(self.db_path)
         self.service = AuthService(self.database)
 
-        sent_codes = []
-        with patch(
-            "backend.services.send_registration_verification_email",
-            side_effect=lambda email, code: sent_codes.append(code) or True,
-        ):
-            ok, _ = self.service.request_registration_code(
-                "Alice Nguyen", "alice@example.com", "Pass1234!"
-            )
-        self.assertTrue(ok)
-        ok, _ = self.service.register("alice@example.com", sent_codes[0])
-        self.assertTrue(ok)
+        ok, message = self.service.register("Alice Nguyen", "alice@example.com", "Pass1234!")
+        self.assertTrue(ok, message)
 
         self.user = self.service.login("alice@example.com", "Pass1234!")
         self.assertIsNotNone(self.user)
@@ -159,11 +149,6 @@ class AuthServiceProfileTests(unittest.TestCase):
         self.assertTrue(ok, message)
         self.assertIsNotNone(self.service.login("alice@example.com", "VerifiedPass777!"))
 
-    def test_normalize_smtp_settings_removes_spaces_from_app_password(self):
-        with patch.dict(os.environ, {"SMTP_EMAIL": "sender@example.com", "SMTP_PASSWORD": "jvrv vpmc jhfy qycv"}):
-            settings = normalize_smtp_settings()
-        self.assertEqual(settings["password"], "jvrvvpmcjhfyqycv")
-        self.assertEqual(settings["username"], "sender@example.com")
 
 
 if __name__ == "__main__":
