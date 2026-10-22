@@ -345,26 +345,6 @@ function preparePasswordModal() {
     emailInput.value = loginEmail;
   }
 
-  $("#verificationCode").value = "";
-}
-
-async function sendPasswordVerificationCode() {
-  const loggedIn = !!document.getElementById("dashboardView") && !document.getElementById("dashboardView").classList.contains("hidden");
-  const email = loggedIn ? (window.__lumiCurrentUser?.email || $("#loginEmail").value.trim()) : $("#passwordEmail").value.trim();
-
-  if (!email) {
-    message($("#passwordMessage"), "Vui lòng nhập email để nhận mã xác minh.");
-    return;
-  }
-
-  const { response, data } = await api("/api/profile/password/request-code", {
-    method: "POST",
-    body: JSON.stringify({ email }),
-  });
-
-  message($("#passwordMessage"), data.message || "", response.ok);
-  if (response.ok) toast("Đã gửi mã xác minh. Hãy kiểm tra email.");
-
 }
 
 $("#openPasswordModalBtn").addEventListener("click", () => {
@@ -377,8 +357,6 @@ $("#openPasswordModalFromLogin").addEventListener("click", () => {
   preparePasswordModal();
   openModal("passwordModal");
 });
-
-$("#sendVerificationCodeBtn").addEventListener("click", sendPasswordVerificationCode);
 
 $("#logoutBtn").addEventListener("click", async () => {
   await api("/api/logout", { method: "POST" });
@@ -468,7 +446,6 @@ $("#passwordForm").addEventListener("submit", async (event) => {
   const currentPassword = $("#currentPassword").value;
   const newPassword = $("#newPassword").value;
   const confirmPassword = $("#confirmPassword").value;
-  const verificationCode = $("#verificationCode").value.trim();
   const loggedIn = !!document.getElementById("dashboardView") && !document.getElementById("dashboardView").classList.contains("hidden");
   const email = $("#passwordEmail").value.trim() || (window.__lumiCurrentUser?.email || $("#loginEmail").value.trim());
 
@@ -479,11 +456,6 @@ $("#passwordForm").addEventListener("submit", async (event) => {
 
   if (!loggedIn && !email) {
     message($("#passwordMessage"), "Vui lòng nhập email để xác thực tài khoản.");
-    return;
-  }
-
-  if (!verificationCode || verificationCode.length !== 6) {
-    message($("#passwordMessage"), "Vui lòng nhập mã xác minh 6 chữ số đã gửi qua email.");
     return;
   }
 
@@ -501,7 +473,6 @@ $("#passwordForm").addEventListener("submit", async (event) => {
     current_password: currentPassword,
     new_password: newPassword,
     confirm_password: confirmPassword,
-    verification_code: verificationCode,
   };
 
   if (!loggedIn) {

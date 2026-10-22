@@ -278,7 +278,6 @@
 #passwordModal #passwordForm label{font-size:15px;gap:8px}
 #passwordModal #passwordForm input{min-height:50px;padding:0 14px;font-size:15px}
 #passwordModal #passwordForm input::placeholder{font-size:14px}
-#passwordModal #sendVerificationCodeBtn{min-height:60px;font-size:15px}
 #passwordModal .form-actions button{min-height:50px;font-size:15px}
 #passwordModal .form-actions .primary-btn{font-size:17px}
 

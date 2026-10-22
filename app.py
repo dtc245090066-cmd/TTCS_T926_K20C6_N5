@@ -139,25 +139,10 @@ def update_profile():
     return jsonify({"ok": ok, "message": message, "user": profile}), 200 if ok else 400
 
 
-@app.post("/api/profile/password/request-code")
-def request_password_change_code():
-    payload = request.get_json(silent=True) or {}
-    email = str(payload.get("email", "") or "").strip().lower()
-    if login_required() and not email:
-        email = session["user"].get("email", "")
-
-    if not email:
-        return jsonify({"ok": False, "message": "Vui lòng nhập email để nhận mã xác minh."}), 400
-
-    ok, message, _ = auth_service.request_password_change_code(email)
-    return jsonify({"ok": ok, "message": message}), 200 if ok else 400
-
-
 @app.post("/api/profile/password")
 def update_password():
     payload = request.get_json(silent=True) or {}
     email = str(payload.get("email", "") or "").strip().lower()
-    verification_code = str(payload.get("verification_code", "") or "").strip()
 
     if login_required():
         user_id = session["user"]["id"]
@@ -167,7 +152,6 @@ def update_password():
             str(payload.get("new_password", "") or ""),
             str(payload.get("confirm_password", "") or ""),
             email=email or session["user"].get("email", ""),
-            verification_code=verification_code,
         )
         return jsonify({"ok": ok, "message": message}), 200 if ok else 400
 
@@ -177,7 +161,6 @@ def update_password():
         str(payload.get("new_password", "") or ""),
         str(payload.get("confirm_password", "") or ""),
         email=email,
-        verification_code=verification_code,
     )
     return jsonify({"ok": ok, "message": message}), 200 if ok else 400
 

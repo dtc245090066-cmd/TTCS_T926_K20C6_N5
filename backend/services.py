@@ -170,54 +170,6 @@ class AuthService:
 
         return True, "Cập nhật thông tin thành công.", dict(updated)
 
-    def request_password_change_code(self, email: str) -> tuple[bool, str, str | None]:
-        normalized_email = (email or "").strip().lower()
-        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", normalized_email):
-            return False, "Vui lòng nhập email hợp lệ để nhận mã xác minh.", None
-
-        with self.database.connect() as connection:
-            user = connection.execute(
-                "SELECT id FROM users WHERE LOWER(email) = ?",
-                (normalized_email,),
-            ).fetchone()
-
-        if user is None:
-            return False, "Email chưa được đăng ký trong hệ thống.", None
-
-        code = f"{secrets.randbelow(900000) + 100000}"
-        with PASSWORD_VERIFICATION_LOCK:
-            PASSWORD_VERIFICATION_CODES[normalized_email] = {
-                "code": code,
-                "expires_at": time.time() + 300,
-            }
-
-        sent = send_password_verification_email(normalized_email, code)
-        if not sent:
-            with PASSWORD_VERIFICATION_LOCK:
-                PASSWORD_VERIFICATION_CODES.pop(normalized_email, None)
-            return False, "Không thể gửi mã xác minh đến email. Vui lòng thử lại sau.", None
-
-        return True, "Mã xác minh đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư.", code
-
-    def validate_password_verification_code(self, email: str, code: str | None) -> tuple[bool, str]:
-        normalized_email = (email or "").strip().lower()
-        if not normalized_email:
-            return False, "Vui lòng nhập email để xác thực tài khoản."
-        if not code or not str(code).strip():
-            return False, "Vui lòng nhập mã xác minh được gửi về email."
-
-        with PASSWORD_VERIFICATION_LOCK:
-            record = PASSWORD_VERIFICATION_CODES.get(normalized_email)
-            if record is None:
-                return False, "Bạn chưa yêu cầu hoặc mã xác minh đã hết hạn. Vui lòng gửi lại mã." 
-            if time.time() > float(record["expires_at"]):
-                PASSWORD_VERIFICATION_CODES.pop(normalized_email, None)
-                return False, "Mã xác minh đã hết hạn. Vui lòng yêu cầu lại mã mới."
-            if not secrets.compare_digest(str(record["code"]), str(code).strip()):
-                return False, "Mã xác minh không đúng. Vui lòng kiểm tra lại email."
-            PASSWORD_VERIFICATION_CODES.pop(normalized_email, None)
-        return True, "Mã xác minh hợp lệ."
-
     def change_password(
         self,
         user_id: int | None,
@@ -225,7 +177,6 @@ class AuthService:
         new_password: str,
         confirm_password: str,
         email: str | None = None,
-        verification_code: str | None = None,
     ) -> tuple[bool, str]:
         if not all(isinstance(value, str) for value in (current_password, new_password, confirm_password)):
             return False, "Dữ liệu mật khẩu không hợp lệ."
@@ -234,7 +185,6 @@ class AuthService:
         new_password = new_password.strip()
         confirm_password = confirm_password.strip()
         email = (email or "").strip().lower()
-        verification_code = (verification_code or "").strip()
 
         if not current_password or not new_password or not confirm_password:
             return False, "Vui lòng nhập đầy đủ mật khẩu hiện tại, mật khẩu mới và xác nhận mật khẩu mới."
@@ -264,12 +214,6 @@ class AuthService:
 
             if user is None:
                 return False, "Người dùng không tồn tại."
-
-            if verification_code:
-                email_to_verify = email or user["email"]
-                valid, message = self.validate_password_verification_code(email_to_verify, verification_code)
-                if not valid:
-                    return False, message
 
             if not check_password_hash(user["password_hash"], current_password):
                 return False, "Mật khẩu hiện tại không đúng."
@@ -360,10 +304,6 @@ REGISTRATION_VERIFICATION_CODES: dict[str, dict[str, Any]] = {}
 REGISTRATION_VERIFICATION_LOCK = threading.Lock()
 
 
-PASSWORD_VERIFICATION_CODES: dict[str, dict[str, float | str]] = {}
-PASSWORD_VERIFICATION_LOCK = threading.Lock()
-
-
 def normalize_smtp_settings() -> dict[str, str]:
     smtp_username = (os.environ.get("SMTP_EMAIL") or os.environ.get("SMTP_USERNAME") or "").strip()
     smtp_password = (os.environ.get("SMTP_PASSWORD") or "").replace(" ", "").strip()
@@ -375,10 +315,6 @@ def normalize_smtp_settings() -> dict[str, str]:
         "password": smtp_password,
         "from": smtp_from,
     }
-
-
-def send_password_verification_email(email: str, code: str) -> bool:
-    return send_verification_email(email, code, "Mã xác minh đổi mật khẩu LumiHotel")
 
 
 def send_registration_verification_email(email: str, code: str) -> bool:
@@ -402,7 +338,7 @@ def send_verification_email(email: str, code: str, subject: str) -> bool:
         message["From"] = smtp_from
         message["To"] = email
         message.set_content(
-            "Mã xác minh đổi mật khẩu của bạn là: "
+            "Mã xác minh của bạn là: "
             f"{code}\n\nMã này có hiệu lực trong 5 phút."
         )
 

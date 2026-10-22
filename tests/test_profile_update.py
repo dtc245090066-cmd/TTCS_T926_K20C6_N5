@@ -136,24 +136,17 @@ class AuthServiceProfileTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("mật khẩu mới", message)
 
-    def test_change_password_requires_email_verification_code(self):
-        with patch("backend.services.send_password_verification_email", return_value=True):
-            ok, message, verification_code = self.service.request_password_change_code("alice@example.com")
-
-        self.assertTrue(ok, message)
-        self.assertTrue(verification_code and verification_code.isdigit() and len(verification_code) == 6)
-
+    def test_change_password_by_email_requires_current_password(self):
         ok, message = self.service.change_password(
             None,
-            "Pass1234!",
+            "wrong-password",
             "VerifiedPass777!",
             "VerifiedPass777!",
             email="alice@example.com",
-            verification_code="000000",
         )
 
         self.assertFalse(ok)
-        self.assertIn("mã xác minh", message.lower())
+        self.assertIn("Mật khẩu hiện tại", message)
 
         ok, message = self.service.change_password(
             None,
@@ -161,23 +154,10 @@ class AuthServiceProfileTests(unittest.TestCase):
             "VerifiedPass777!",
             "VerifiedPass777!",
             email="alice@example.com",
-            verification_code=verification_code,
         )
 
         self.assertTrue(ok, message)
         self.assertIsNotNone(self.service.login("alice@example.com", "VerifiedPass777!"))
-
-    def test_request_password_change_code_fails_without_smtp_configuration(self):
-        with patch.dict(os.environ, {
-            "SMTP_EMAIL": "",
-            "SMTP_USERNAME": "",
-            "SMTP_PASSWORD": "",
-        }):
-            ok, message, verification_code = self.service.request_password_change_code("alice@example.com")
-
-        self.assertFalse(ok)
-        self.assertIsNone(verification_code)
-        self.assertIn("Không thể gửi", message)
 
     def test_normalize_smtp_settings_removes_spaces_from_app_password(self):
         with patch.dict(os.environ, {"SMTP_EMAIL": "sender@example.com", "SMTP_PASSWORD": "jvrv vpmc jhfy qycv"}):
