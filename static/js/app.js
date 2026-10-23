@@ -16,8 +16,11 @@ let returnToRoomListAfterBooking = false;
 let lockedBookingRoomId = null;
 let activeConfirmation = null;
 let chart;
-let selectedAvatarFile = null;
 let selectedRoomImageFile = null;
+let selectedRevenueYear = new Date().getFullYear();
+let isExportingRevenuePdf = false;
+let revenueChart;
+let revenueRequestId = 0;
 
 const statusMap = {
   available: "Trống",
@@ -69,6 +72,23 @@ function message(el, text, success = false) {
   el.classList.toggle("success", success);
 }
 
+function togglePasswordVisibility(button) {
+  const targetId = button.dataset.target;
+  const input = targetId ? document.getElementById(targetId) : null;
+
+  if (!input) return;
+
+  const shouldShow = input.type === "password";
+  input.type = shouldShow ? "text" : "password";
+  button.textContent = shouldShow ? "🙈" : "👁";
+  button.setAttribute("aria-label", shouldShow ? "Ẩn mật khẩu" : "Hiện mật khẩu");
+  button.setAttribute("title", shouldShow ? "Ẩn mật khẩu" : "Hiện mật khẩu");
+}
+
+document.querySelectorAll(".password-toggle").forEach((button) => {
+  button.addEventListener("click", () => togglePasswordVisibility(button));
+});
+
 async function api(url, options = {}) {
   const headers = options.body instanceof FormData
     ? { ...(options.headers || {}) }
@@ -96,6 +116,7 @@ function showLogin(error = "") {
 
 function setUserDisplay(user) {
   if (!user) return;
+  window.__lumiCurrentUser = user || null;
   const fullName = user.full_name || "Admin";
   $("#userName").textContent = fullName;
   $("#userRole").textContent = user.role === "manager" ? "Quản lý" : "Nhân viên";
@@ -151,6 +172,12 @@ function showDashboard(user) {
   setUserDisplay(user);
   loadProfile();
   loadAll();
+  const returnParams = new URLSearchParams(window.location.search);
+  const returnYear = Number(returnParams.get("year"));
+  if (returnParams.get("view") === "revenue" && Number.isInteger(returnYear) && returnYear >= 1 && returnYear <= 9999) {
+    selectedRevenueYear = returnYear;
+    setView("revenue");
+  }
 }
 
 async function loadProfile() {
@@ -160,19 +187,35 @@ async function loadProfile() {
 
     const user = data.user || {};
     setUserDisplay(user);
-    $("#profileFullName").value = user.full_name || "";
-    $("#profileBirthDate").value = user.birth_date || "";
-    $("#profileEmail").value = user.email || "";
-    $("#profilePhone").value = user.phone || "";
-    $("#profileAvatar").value = user.avatar_url || "";
-    selectedAvatarFile = null;
-    $("#profileAvatarFile").value = "";
-    $("#profileAvatarFileName").textContent = "Chưa chọn ảnh";
-    $("#profileAvatarPreview").src = user.avatar_url || "";
-    $("#profileAvatarPreview").style.display = user.avatar_url ? "block" : "none";
+    populateProfileForm(user);
   } catch (error) {
     console.error(error);
   }
+}
+
+function populateProfileForm(user) {
+  const values = {
+    full_name: user.full_name || "",
+    gender: user.gender || "",
+    birth_date: user.birth_date || "",
+    id_number: user.id_number || "",
+    phone: user.phone || "",
+    email: user.email || "",
+    contact_name: user.contact_name || "",
+    contact_address: user.contact_address || "",
+  };
+
+  Object.entries(values).forEach(([field, value]) => {
+    const input = document.querySelector(`[data-profile-input="${field}"]`);
+    const display = document.querySelector(`[data-profile-value="${field}"]`);
+    input.value = value;
+    display.textContent = value || "—";
+    input.hidden = true;
+    input.disabled = true;
+    display.hidden = false;
+    input.closest(".profile-field").classList.remove("is-editing");
+  });
+
 }
 
 async function checkSession() {
@@ -235,6 +278,9 @@ $("#registerForm").addEventListener("submit", async (event) => {
       registerPanel.classList.add("hidden");
       loginPanel.classList.remove("hidden");
       $("#loginEmail").value = $("#registerEmail").value;
+      $("#registerForm").reset();
+      message($("#loginMessage"), data.message || "", true);
+      message($("#registerMessage"), "");
     }, 700);
   }
 });
@@ -262,48 +308,8 @@ $("#topProfileBtn").addEventListener("click", async () => {
 function preparePasswordModal() {
   $("#passwordForm").reset();
   $("#passwordMessage").textContent = "";
-  const loggedIn = !!document.getElementById("dashboardView") && !document.getElementById("dashboardView").classList.contains("hidden");
-  const emailRow = document.getElementById("passwordEmailRow");
-  const emailInput = document.getElementById("passwordEmail");
 
-  if (loggedIn) {
-    emailRow.style.display = "none";
-    emailInput.value = "";
-  } else {
-    emailRow.style.display = "block";
-    const loginEmail = $("#loginEmail").value.trim();
-    emailInput.value = loginEmail;
-  }
-
-  $("#verificationCode").value = "";
 }
-
-async function sendPasswordVerificationCode() {
-  const loggedIn = !!document.getElementById("dashboardView") && !document.getElementById("dashboardView").classList.contains("hidden");
-  const email = loggedIn ? $("#profileEmail").value.trim() || $("#loginEmail").value.trim() : $("#passwordEmail").value.trim();
-
-  if (!email) {
-    message($("#passwordMessage"), "Vui lòng nhập email để nhận mã xác minh.");
-    return;
-  }
-
-  const { response, data } = await api("/api/profile/password/request-code", {
-    method: "POST",
-    body: JSON.stringify({ email }),
-  });
-
-  message($("#passwordMessage"), data.message || "", response.ok);
-
-  if (data.debug_code) {
-    $("#verificationCode").value = data.debug_code;
-    $("#verificationCode").focus();
-  }
-}
-
-$("#changePasswordBtn").addEventListener("click", () => {
-  preparePasswordModal();
-  openModal("passwordModal");
-});
 
 $("#openPasswordModalBtn").addEventListener("click", () => {
   preparePasswordModal();
@@ -312,11 +318,11 @@ $("#openPasswordModalBtn").addEventListener("click", () => {
 });
 
 $("#openPasswordModalFromLogin").addEventListener("click", () => {
-  preparePasswordModal();
-  openModal("passwordModal");
+  $("#forgotPasswordForm").reset();
+  $("#recoveryEmail").value = $("#loginEmail").value.trim();
+  message($("#recoveryMessage"), "");
+  openModal("forgotPasswordModal");
 });
-
-$("#sendVerificationCodeBtn").addEventListener("click", sendPasswordVerificationCode);
 
 $("#logoutBtn").addEventListener("click", async () => {
   await api("/api/logout", { method: "POST" });
@@ -324,61 +330,79 @@ $("#logoutBtn").addEventListener("click", async () => {
   toast("Đã đăng xuất");
 });
 
-$("#profileAvatarFile").addEventListener("change", () => {
-  selectedAvatarFile = $("#profileAvatarFile").files[0] || null;
-  $("#profileAvatarFileName").textContent = selectedAvatarFile?.name || "Chưa chọn ảnh";
-  const url = selectedAvatarFile ? URL.createObjectURL(selectedAvatarFile) : $("#profileAvatar").value.trim();
-  const preview = $("#profileAvatarPreview");
-  preview.src = url;
-  preview.style.display = url ? "block" : "none";
+$("#profileFields").addEventListener("click", event => {
+  const button = event.target.closest("[data-edit-profile-field]");
+  if (!button) return;
+
+  const field = button.dataset.editProfileField;
+  const row = button.closest(".profile-field");
+  const input = row.querySelector(`[data-profile-input="${field}"]`);
+  const display = row.querySelector(`[data-profile-value="${field}"]`);
+  row.classList.add("is-editing");
+  display.hidden = true;
+  input.hidden = false;
+  input.disabled = false;
+  input.focus();
+  if (input instanceof HTMLInputElement && input.type === "text") input.select();
 });
 
 $("#profileForm").addEventListener("submit", async (event) => {
   event.preventDefault();
 
-  if (selectedAvatarFile) {
-    const formData = new FormData();
-    formData.append("avatar", selectedAvatarFile);
-    const upload = await api("/api/profile/avatar", { method: "POST", body: formData });
-    if (!upload.response.ok) {
-      message($("#profileMessage"), upload.data.message || "Không thể tải ảnh lên.");
-      return;
-    }
-    $("#profileAvatar").value = upload.data.avatar_url;
+  const editingInputs = $$("#profileFields [data-profile-input]:not([disabled])");
+  const invalidInput = editingInputs.find(input => !input.checkValidity());
+  if (invalidInput) {
+    invalidInput.reportValidity();
+    return;
   }
 
-  const payload = {
-    full_name: $("#profileFullName").value,
-    birth_date: $("#profileBirthDate").value,
-    phone: $("#profilePhone").value,
-    avatar_url: $("#profileAvatar").value,
-  };
+  const phone = $("#profilePhone").value.trim();
+  const idNumber = $("#profileIdNumber").value.trim();
+  if (phone && !/^0[35789]\d{8}$/.test(phone)) {
+    message($("#profileMessage"), "Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 03, 05, 07, 08 hoặc 09.");
+    $("#profilePhone").focus();
+    return;
+  }
+  if (idNumber && !/^(?:\d{9}|\d{12}|(?=.*[A-Za-z])[A-Za-z0-9-]{6,20})$/.test(idNumber)) {
+    message($("#profileMessage"), "Số CCCD/CMND/Hộ chiếu không hợp lệ.");
+    $("#profileIdNumber").focus();
+    return;
+  }
 
-  const { response, data } = await api("/api/profile", {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
+  try {
+    const payload = {
+      full_name: $("#profileFullName").value.trim(),
+      gender: $("#profileGender").value,
+      birth_date: $("#profileBirthDate").value,
+      id_number: idNumber,
+      phone,
+      email: $("#profileEmail").value.trim(),
+      contact_name: $("#profileContactName").value.trim(),
+      contact_address: $("#profileContactAddress").value.trim(),
+    };
 
-  message($("#profileMessage"), data.message || "", response.ok);
+    const { response, data } = await api("/api/profile", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
 
-  if (response.ok) {
-    selectedAvatarFile = null;
-    $("#profileAvatarFile").value = "";
-    $("#profileAvatarFileName").textContent = "Chưa chọn ảnh";
+    message($("#profileMessage"), data.message || "", response.ok);
+    if (!response.ok) {
+      toast(data.message || "Không thể cập nhật thông tin.");
+      return;
+    }
+
     const user = data.user || {};
+    populateProfileForm(user);
     setUserDisplay(user);
-    $("#userName").textContent = user.full_name || $("#profileFullName").value;
-    $("#profileAvatarBadge").textContent = (user.full_name || $("#profileFullName").value)
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map(part => part[0])
-      .join("")
-      .toUpperCase() || "LH";
-
     closeModal("profileModal");
     toast(data.message || "Cập nhật thành công");
     await loadAll();
+  } catch (error) {
+    if (error.message === "Unauthorized") return;
+    console.error("Không thể cập nhật hồ sơ:", error);
+    message($("#profileMessage"), "Không thể cập nhật thông tin. Vui lòng thử lại.");
+    toast("Không thể cập nhật thông tin. Vui lòng thử lại.");
   }
 });
 
@@ -388,22 +412,9 @@ $("#passwordForm").addEventListener("submit", async (event) => {
   const currentPassword = $("#currentPassword").value;
   const newPassword = $("#newPassword").value;
   const confirmPassword = $("#confirmPassword").value;
-  const verificationCode = $("#verificationCode").value.trim();
-  const loggedIn = !!document.getElementById("dashboardView") && !document.getElementById("dashboardView").classList.contains("hidden");
-  const email = $("#passwordEmail").value.trim() || ($("#profileEmail") ? $("#profileEmail").value.trim() : "");
 
   if (!currentPassword || !newPassword || !confirmPassword) {
     message($("#passwordMessage"), "Vui lòng nhập đầy đủ các trường bắt buộc.");
-    return;
-  }
-
-  if (!loggedIn && !email) {
-    message($("#passwordMessage"), "Vui lòng nhập email để xác thực tài khoản.");
-    return;
-  }
-
-  if (!verificationCode || verificationCode.length !== 6) {
-    message($("#passwordMessage"), "Vui lòng nhập mã xác minh 6 chữ số đã gửi qua email.");
     return;
   }
 
@@ -421,14 +432,7 @@ $("#passwordForm").addEventListener("submit", async (event) => {
     current_password: currentPassword,
     new_password: newPassword,
     confirm_password: confirmPassword,
-    verification_code: verificationCode,
   };
-
-  if (!loggedIn) {
-    payload.email = email;
-  } else {
-    payload.email = $("#profileEmail").value.trim();
-  }
 
   const { response, data } = await api("/api/profile/password", {
     method: "POST",
@@ -444,6 +448,79 @@ $("#passwordForm").addEventListener("submit", async (event) => {
   }
 });
 
+let recoveryToken = "";
+
+$("#forgotPasswordForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = event.submitter;
+  if (button) button.disabled = true;
+  try {
+    const { response, data } = await api("/api/password/forgot", {
+      method: "POST", body: JSON.stringify({ email: $("#recoveryEmail").value.trim() }),
+    });
+    message($("#recoveryMessage"), data.message, response.ok);
+  } catch {
+    message($("#recoveryMessage"), "Không thể kết nối. Vui lòng thử lại.");
+  } finally {
+    if (button) button.disabled = false;
+  }
+});
+
+async function openRecoveryLink() {
+  if (!window.location.hash.startsWith("#reset-password=")) return;
+  recoveryToken = window.location.hash.slice("#reset-password=".length);
+  history.replaceState(null, "", window.location.pathname + window.location.search);
+  openModal("resetPasswordModal");
+  $("#resetPasswordForm").classList.add("hidden");
+  try {
+    const { response, data } = await api("/api/password/verify", {
+      method: "POST", body: JSON.stringify({ token: recoveryToken }),
+    });
+    message($("#resetMessage"), data.message, response.ok);
+    $("#resetPasswordForm").classList.toggle("hidden", !response.ok);
+  } catch {
+    message($("#resetMessage"), "Không thể kiểm tra liên kết. Vui lòng mở lại liên kết trong email.");
+  }
+}
+
+$("#resetPasswordForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = event.submitter;
+  if (button) button.disabled = true;
+  try {
+    const { response, data } = await api("/api/password/reset", {
+      method: "POST", body: JSON.stringify({
+        token: recoveryToken,
+        password: $("#recoveryPassword").value,
+        confirmation: $("#recoveryConfirmation").value,
+      }),
+    });
+    message($("#resetMessage"), data.message, response.ok);
+    if (response.ok) {
+      recoveryToken = "";
+      $("#resetPasswordForm").reset();
+      $("#resetPasswordForm").classList.add("hidden");
+      showLogin();
+      registerPanel.classList.add("hidden");
+      loginPanel.classList.remove("hidden");
+      message($("#loginMessage"), data.message, true);
+    }
+  } catch {
+    message($("#resetMessage"), "Không thể kết nối. Vui lòng thử lại.");
+  } finally {
+    if (button) button.disabled = false;
+  }
+});
+
+$("#recoveryBackToLogin").addEventListener("click", () => {
+  closeModal("resetPasswordModal");
+  showLogin();
+  registerPanel.classList.add("hidden");
+  loginPanel.classList.remove("hidden");
+});
+window.addEventListener("hashchange", openRecoveryLink);
+window.addEventListener("DOMContentLoaded", openRecoveryLink);
+
 function setView(view) {
   $$(".nav-item").forEach((item) => item.classList.toggle("active", item.dataset.view === view || (item.dataset.view === "rooms" && ["room-list", "room-types"].includes(view))));
   $$("[data-view-panel]").forEach((panel) => panel.classList.toggle("active", panel.dataset.viewPanel === view));
@@ -455,6 +532,11 @@ function setView(view) {
   if (view === "room-list") renderRoomList();
   if (view === "room-types") renderRoomTypes();
   if (view === "checkout") renderCheckoutList();
+  if (view === "revenue") {
+    bindRevenueYearSelector();
+    buildRevenueYearOptions();
+    fetchRevenueStatistics(selectedRevenueYear).catch(error => console.error(error));
+  }
 }
 
 $$(".nav-item[data-view]").forEach((item) => {
@@ -478,6 +560,108 @@ $$("[data-go]").forEach((button) => {
   button.addEventListener("click", () => setView(button.dataset.go));
 });
 
+function bindRevenueYearSelector() {
+  const select = document.getElementById("revenueYearSelect");
+  if (!select || select.dataset.bound === "true") return;
+
+  select.dataset.bound = "true";
+  select.addEventListener("change", async () => {
+    const year = Number(select.value || selectedRevenueYear || new Date().getFullYear());
+    selectedRevenueYear = year;
+    await fetchRevenueStatistics(year);
+  });
+}
+
+function buildRevenueYearOptions() {
+  const select = document.getElementById("revenueYearSelect");
+  if (!select) return;
+
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 7 }, (_, index) => currentYear - 3 + index);
+  if (!years.includes(selectedRevenueYear)) years.push(selectedRevenueYear);
+  years.sort((a, b) => a - b);
+  select.innerHTML = years.map((year) => `<option value="${year}">${year}</option>`).join("");
+  select.value = String(selectedRevenueYear || currentYear);
+}
+
+async function fetchRevenueStatistics(year = selectedRevenueYear) {
+  const requestId = ++revenueRequestId;
+  selectedRevenueYear = Number(year);
+  clearRevenueStatistics(year, "Đang tải dữ liệu thu nhập…");
+  try {
+    const { response, data } = await api(`/api/revenue-statistics?year=${encodeURIComponent(year)}`);
+    if (requestId !== revenueRequestId) return;
+    if (!response.ok) throw new Error(data.message || "Không thể tải thống kê thu nhập.");
+    if (Number(data.year) !== Number(year) || !Array.isArray(data.months)) {
+      throw new Error("Dữ liệu thống kê không hợp lệ.");
+    }
+    renderRevenueStatistics(data);
+  } catch (error) {
+    if (requestId !== revenueRequestId) return;
+    clearRevenueStatistics(year, "Không thể tải thống kê thu nhập. Vui lòng chọn lại năm để thử lại.", true);
+  }
+}
+
+function clearRevenueStatistics(year, text, isError = false) {
+  if (revenueChart) revenueChart.destroy();
+  revenueChart = null;
+  $("#revenueYearSummary").textContent = `Tổng thu nhập cả năm ${year}`;
+  $("#revenueYearValue").textContent = "—";
+  $("#revenueTableBody").innerHTML = "";
+  $("#revenueChartMessage").textContent = text;
+  $("#revenueChartMessage").classList.toggle("is-error", isError);
+}
+
+async function exportRevenuePdf() {
+  if (isExportingRevenuePdf) return;
+
+  const year = Number(selectedRevenueYear || new Date().getFullYear());
+  const exportUrl = `/api/revenue-statistics/export?year=${encodeURIComponent(year)}`;
+  const exportButton = $("#exportRevenuePdfBtn");
+  isExportingRevenuePdf = true;
+  exportButton.disabled = true;
+
+  try {
+    const response = await fetch(exportUrl, {
+      method: "GET",
+      headers: { Accept: "application/pdf" },
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.message || "Không thể xuất PDF.");
+    }
+
+    const blob = await response.blob();
+    if (blob.size === 0) {
+      throw new Error("Máy chủ trả về file PDF rỗng.");
+    }
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `LumiHotel_ThongKeThuNhap_${year}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+    toast("Xuất PDF thành công");
+  } catch (error) {
+    console.error(error);
+    toast(error.message || "Xuất PDF thất bại.");
+  } finally {
+    isExportingRevenuePdf = false;
+    exportButton.disabled = false;
+  }
+}
+
+$("#exportRevenuePdfBtn").addEventListener("click", async () => {
+  const confirmed = await requestConfirmation({
+    modalId: "exportPdfConfirmModal",
+    submitId: "exportPdfConfirmSubmit",
+  });
+  if (confirmed) await exportRevenuePdf();
+});
+
 async function loadAll() {
   try {
     const [roomsResult, roomTypesResult, bookingsResult, dashboardResult] = await Promise.all([
@@ -485,22 +669,116 @@ async function loadAll() {
       api("/api/room-types"),
       api("/api/bookings"),
       api("/api/dashboard"),
+      fetchRevenueStatistics(selectedRevenueYear),
     ]);
 
     rooms = roomsResult.data.rooms || [];
     roomTypes = roomTypesResult.data.room_types || [];
     bookings = bookingsResult.data.bookings || [];
 
+    bindRevenueYearSelector();
+    buildRevenueYearOptions();
     fillRoomTypeOptions();
     renderRooms();
     renderRoomList();
     renderRoomTypes();
     renderCheckoutList();
-    renderDashboard(dashboardResult.data);
+    if (dashboardResult.response.ok) {
+      renderDashboard(dashboardResult.data);
+    }
     fillBookingRooms();
   } catch (error) {
     console.error(error);
   }
+}
+
+function renderRevenueStatistics(data = {}) {
+  const year = Number(data.year || selectedRevenueYear || new Date().getFullYear());
+  selectedRevenueYear = year;
+  const total = Number(data.total || 0);
+  const seenMonths = new Set();
+  if (!Number.isFinite(total) || !Array.isArray(data.months) || data.months.some(item => {
+    if (!item) return true;
+    const month = Number(item.month);
+    if (!Number.isInteger(month) || month < 1 || month > 12 || seenMonths.has(month)
+        || typeof item.total !== "number" || !Number.isFinite(item.total)) return true;
+    seenMonths.add(month);
+    return false;
+  })) {
+    throw new Error("Dữ liệu thống kê không hợp lệ.");
+  }
+  const rows = Array.from({ length: 12 }, (_, index) => ({
+    month: index + 1,
+    total: Number(data.months?.find(item => Number(item.month) === index + 1)?.total || 0),
+  }));
+  const monthlyTotal = rows.reduce((sum, item) => sum + item.total, 0);
+  if (Math.abs(monthlyTotal - total) > Math.max(0.000001, Math.abs(total) * Number.EPSILON * 12)) {
+    throw new Error("Tổng thu nhập không khớp dữ liệu theo tháng.");
+  }
+
+  const select = document.getElementById("revenueYearSelect");
+  if (select) {
+    select.value = String(year);
+  }
+
+  $("#revenueYearSummary").textContent = `Tổng thu nhập cả năm ${year}`;
+  $("#revenueYearValue").textContent = money(total);
+  $("#revenueTableBody").innerHTML = rows.map(item => `
+    <tr>
+      <td><a href="/booking-history?year=${year}&month=${item.month}">Tháng ${item.month}</a></td>
+      <td>${money(item.total || 0)}</td>
+    </tr>
+  `).join("");
+  renderRevenueChart(rows, year);
+}
+
+function renderRevenueChart(rows, year) {
+  if (revenueChart) revenueChart.destroy();
+  revenueChart = null;
+  const values = rows.map(item => item.total);
+  const maximum = Math.max(...values);
+  const status = $("#revenueChartMessage");
+  status.classList.remove("is-error");
+  status.textContent = values.every(value => value === 0) ? `Năm ${year} chưa có doanh thu.` : "";
+  if (typeof Chart === "undefined") {
+    status.textContent = "Không tải được thư viện biểu đồ. Bạn vẫn có thể xem dữ liệu trong bảng và xuất PDF.";
+    status.classList.add("is-error");
+    return;
+  }
+  revenueChart = new Chart($("#revenueChart"), {
+    type: "bar",
+    data: {
+      labels: rows.map(item => `Tháng ${item.month}`),
+      datasets: [{
+        label: "Thu nhập", data: values,
+        backgroundColor: values.map(value => value > 0 && value === maximum ? "#6e4b2d" : "#b58b59"),
+        hoverBackgroundColor: "#8c623e", borderRadius: 6, maxBarThickness: 48,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      onClick: (_event, elements) => {
+        if (!elements.length) return;
+        const month = rows[elements[0].index].month;
+        window.location.assign(`/booking-history?year=${year}&month=${month}`);
+      },
+      onHover: (event, elements) => {
+        if (event.native?.target) event.native.target.style.cursor = elements.length ? "pointer" : "default";
+      },
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: context => `Thu nhập: ${money(context.parsed.y)}` } },
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: false,
+          callback: function(value) { return this.chart.width < 600 ? `T${Number(value) + 1}` : this.getLabelForValue(value); } } },
+        y: { beginAtZero: true, title: { display: true, text: "VNĐ" },
+          grid: { color: "rgba(110,75,45,.09)" }, border: { display: false },
+          ticks: { maxTicksLimit: 6, callback: value => new Intl.NumberFormat("vi-VN", { notation: "compact", maximumFractionDigits: 1 }).format(value) } },
+      },
+    },
+  });
 }
 
 function renderDashboard(summary) {
@@ -711,6 +989,7 @@ $("#roomListBody").addEventListener("click", handleRoomCardAction);
 $("#checkoutRoomsGrid").addEventListener("click", handleRoomCardAction);
 
 function getRoomStay(room) {
+  if (room.status !== "occupied") return null;
   return bookings.find(booking =>
     booking.room_code === room.code && ["booked", "checked_in"].includes(booking.status)
   );
@@ -801,7 +1080,7 @@ function requestConfirmation({ modalId, roomCodeId, submitId, roomCode }) {
   if (activeConfirmation) return Promise.resolve(false);
 
   const modal = $(`#${modalId}`);
-  $(`#${roomCodeId}`).textContent = roomCode;
+  if (roomCodeId) $(`#${roomCodeId}`).textContent = roomCode;
 
   return new Promise(resolve => {
     activeConfirmation = { resolve, trigger: document.activeElement, modal };
@@ -815,6 +1094,7 @@ function requestConfirmation({ modalId, roomCodeId, submitId, roomCode }) {
 [
   ["checkoutConfirmModal", "checkoutConfirmCancel", "checkoutConfirmClose", "checkoutConfirmSubmit"],
   ["roomDeleteConfirmModal", "roomDeleteConfirmCancel", "roomDeleteConfirmClose", "roomDeleteConfirmSubmit"],
+  ["exportPdfConfirmModal", "exportPdfConfirmCancel", "exportPdfConfirmClose", "exportPdfConfirmSubmit"],
 ].forEach(([modalId, cancelId, closeId, submitId]) => {
   $(`#${cancelId}`).addEventListener("click", () => closeConfirmation(false));
   $(`#${closeId}`).addEventListener("click", () => closeConfirmation(false));
@@ -940,6 +1220,9 @@ function checkoutRoomCardMarkup(room) {
         <p class="checkout-room-type">${escapeHtml(room.room_type_name || room.room_type || "Phòng")} · Tầng ${escapeHtml(room.floor)}</p>
         <dl class="checkout-details">
           <div><dt>Khách đang ở</dt><dd>${escapeHtml(booking?.customer_name || "--")}</dd></div>
+          <div><dt>Số điện thoại</dt><dd>${escapeHtml(booking?.customer_phone || "--")}</dd></div>
+          <div><dt>CCCD</dt><dd>${escapeHtml(booking?.customer_id_number || "--")}</dd></div>
+          ${booking?.customer_email ? `<div><dt>Email</dt><dd>${escapeHtml(booking.customer_email)}</dd></div>` : ""}
           <div><dt>Giờ vào</dt><dd>${escapeHtml(formatBookingDateTime(booking?.check_in, booking?.check_in_time))}</dd></div>
           <div><dt>Giờ trả dự kiến</dt><dd>${escapeHtml(formatBookingDateTime(booking?.check_out, booking?.check_out_time))}</dd></div>
           <div><dt>Thời gian ở</dt><dd>${stayDays === null ? "--" : `${stayDays} ngày`}</dd></div>
@@ -1079,8 +1362,10 @@ function updateBookingSummary() {
     return;
   }
 
-  const start = new Date(`${bookingCheckIn.value}T${bookingCheckInTime.value}:00`);
-  const end = new Date(`${bookingCheckOut.value}T${bookingCheckOutTime.value}:00`);
+  const checkInDate = parseLocalDate(bookingCheckIn.value);
+  const checkOutDate = parseLocalDate(bookingCheckOut.value);
+  const start = checkInDate ? new Date(`${bookingCheckIn.value}T${bookingCheckInTime.value}:00`) : new Date(NaN);
+  const end = checkOutDate ? new Date(`${bookingCheckOut.value}T${bookingCheckOutTime.value}:00`) : new Date(NaN);
   let checkoutError = "";
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
     checkoutError = "Vui lòng nhập thời gian thuê hợp lệ.";
@@ -1105,9 +1390,14 @@ function updateBookingSummary() {
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
   const hourlyRate = Number(room.price || 0) / 24;
-  const total = totalHours * hourlyRate;
-  durationEl.textContent = `${hours} giờ${minutes ? ` ${minutes} phút` : ""}`;
-  priceEl.textContent = `${money(hourlyRate)} / giờ · ${money(room.price)} / đêm`;
+  const nights = dateOffset(checkOutDate, checkInDate);
+  const total = nights > 0 ? nights * Number(room.price || 0) : totalHours * hourlyRate;
+  durationEl.textContent = nights > 0
+    ? `${nights} đêm`
+    : `${hours} giờ${minutes ? ` ${minutes} phút` : ""}`;
+  priceEl.textContent = nights > 0
+    ? `${money(room.price)} / đêm`
+    : `${money(hourlyRate)} / giờ · ${money(room.price)} / đêm`;
   totalEl.textContent = money(total);
 }
 
@@ -1245,6 +1535,9 @@ $("#bookingForm").addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const customerName = $("#bookingCustomer").value.trim();
+  const customerPhone = $("#bookingCustomerPhone").value.trim();
+  const customerIdNumber = $("#bookingCustomerIdNumber").value.trim();
+  const customerEmail = $("#bookingCustomerEmail").value.trim();
   const roomId = Number($("#bookingRoom").value);
   const checkIn = $("#bookingCheckIn").value;
   const checkOut = $("#bookingCheckOut").value;
@@ -1257,6 +1550,18 @@ $("#bookingForm").addEventListener("submit", async (event) => {
     message($("#bookingMessage"), "Vui lòng nhập tên khách hàng.");
     return;
   }
+  if (!/^0[35789]\d{8}$/.test(customerPhone)) {
+    message($("#bookingMessage"), "Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 03, 05, 07, 08 hoặc 09.");
+    return;
+  }
+  if (!/^\d{12}$/.test(customerIdNumber)) {
+    message($("#bookingMessage"), "CCCD phải gồm đúng 12 chữ số.");
+    return;
+  }
+  if (customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) {
+    message($("#bookingMessage"), "Email khách hàng không hợp lệ.");
+    return;
+  }
   if (!roomId || !checkIn || !checkOut) {
     message($("#bookingMessage"), "Vui lòng chọn phòng và ngày thuê hợp lệ.");
     return;
@@ -1266,8 +1571,10 @@ $("#bookingForm").addEventListener("submit", async (event) => {
     return;
   }
 
-  const start = new Date(`${checkIn}T${checkInTime}:00`);
-  const end = new Date(`${checkOut}T${checkOutTime}:00`);
+  const checkInDate = parseLocalDate(checkIn);
+  const checkOutDate = parseLocalDate(checkOut);
+  const start = checkInDate ? new Date(`${checkIn}T${checkInTime}:00`) : new Date(NaN);
+  const end = checkOutDate ? new Date(`${checkOut}T${checkOutTime}:00`) : new Date(NaN);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
     message($("#bookingMessage"), "Giờ trả phòng phải sau giờ nhận phòng.");
     return;
@@ -1289,11 +1596,17 @@ $("#bookingForm").addEventListener("submit", async (event) => {
   }
 
   const totalHours = (end - start) / 3600000;
-  const expectedTotal = (Number(room.price || 0) / 24) * totalHours;
+  const nights = dateOffset(checkOutDate, checkInDate);
+  const expectedTotal = nights > 0
+    ? nights * Number(room.price || 0)
+    : (Number(room.price || 0) / 24) * totalHours;
   const { response, data } = await api("/api/bookings", {
     method: "POST",
     body: JSON.stringify({
       customer_name: customerName,
+      customer_phone: customerPhone,
+      customer_id_number: customerIdNumber,
+      customer_email: customerEmail,
       room_id: roomId,
       check_in: checkIn,
       check_out: checkOut,

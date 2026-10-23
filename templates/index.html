@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v='gold-ambient-20261008-4') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v='profile-form-20261015-2') }}">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -44,14 +44,15 @@
           <input id="loginEmail" type="email" placeholder="Nhập email của bạn" required>
         </label>
 
-        <label class="field-row">
+        <label class="field-row password-field">
           <span class="field-icon">⌂</span>
           <input id="loginPassword" type="password" placeholder="Nhập mật khẩu" required>
+          <button type="button" class="password-toggle" data-target="loginPassword" aria-label="Hiện mật khẩu" title="Hiện mật khẩu">👁</button>
         </label>
 
         <div class="login-meta">
           <label class="remember-row"><input type="checkbox" checked> Ghi nhớ đăng nhập</label>
-          <button type="button" class="text-link" id="openPasswordModalFromLogin">Đổi mật khẩu</button>
+          <button type="button" class="text-link" id="openPasswordModalFromLogin">Quên mật khẩu</button>
         </div>
 
         <button class="primary-btn wide" type="submit">Đăng nhập hệ thống →</button>
@@ -69,8 +70,13 @@
       <form id="registerForm" class="auth-form">
         <label>Họ và tên<input id="registerName" required></label>
         <label>Email<input id="registerEmail" type="email" required></label>
-        <label>Mật khẩu<input id="registerPassword" type="password" minlength="8" required></label>
-        <button class="primary-btn wide" type="submit">Tạo tài khoản</button>
+        <label class="password-input-group">Mật khẩu
+          <div class="password-field">
+            <input id="registerPassword" type="password" minlength="8" required>
+            <button type="button" class="password-toggle" data-target="registerPassword" aria-label="Hiện mật khẩu" title="Hiện mật khẩu">👁</button>
+          </div>
+        </label>
+        <button class="primary-btn wide" id="registerSubmitBtn" type="submit">Tạo tài khoản</button>
       </form>
       <p id="registerMessage" class="form-message"></p>
       <button class="link-button" id="showLogin">← Quay lại đăng nhập</button>
@@ -96,6 +102,7 @@
         </div>
       </div>
       <button class="nav-item" data-view="checkout" title="Trả phòng"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8M10 12h11m-5-5 5 5-5 5"/></svg></span><span class="nav-label-text">Trả phòng</span><b class="badge" id="checkoutBadge">0</b><span class="nav-chevron" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg></span></button>
+      <button class="nav-item" data-view="revenue" title="Thống kê thu nhập"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 18V8m7 10V5m7 13v-8M3 18h18"/></svg></span><span class="nav-label-text">Thống kê thu nhập</span><span class="nav-chevron" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg></span></button>
     </nav>
 
     <div class="navbar-actions">
@@ -103,8 +110,7 @@
       <div class="profile">
         <button class="top-avatar" id="topProfileBtn" title="Mở hồ sơ người dùng" aria-label="Mở hồ sơ người dùng"><img id="topUserAvatar" alt="" hidden><span id="topUserInitials">LH</span></button>
         <div class="profile-info"><strong id="userName">Admin</strong><small id="userRole">Quản lý</small></div>
-        <button class="icon-btn" id="profileBtn" title="Cập nhật hồ sơ">✎</button>
-        <button class="icon-btn" id="changePasswordBtn" title="Đổi mật khẩu">🔒</button>
+        <button class="icon-btn" id="profileBtn" title="Cập nhật hồ sơ" aria-label="Cập nhật hồ sơ"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></button>
         <button class="icon-btn" id="logoutBtn" title="Đăng xuất">↪</button>
       </div>
       <span class="hidden" id="profileAvatarBadge">LH</span>
@@ -239,6 +245,49 @@
       <div class="checkout-grid" id="checkoutRoomsGrid" aria-live="polite"></div>
     </section>
 
+    <section class="dashboard-section" data-view-panel="revenue">
+      <div class="section-page-head">
+        <div><span class="section-label">THỐNG KÊ / DOANH THU</span><h2>Thống kê thu nhập</h2></div>
+      </div>
+      <div class="panel revenue-panel">
+        <div class="panel-head">
+          <div><span class="section-label">TỔNG QUAN</span><h3 id="revenueYearSummary">Tổng thu nhập cả năm</h3></div>
+        </div>
+        <div class="revenue-controls" style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin: 0 0 18px; flex-wrap:wrap;">
+          <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <label for="revenueYearSelect" style="font-size: 0.9rem; font-weight: 600; color: #4a3a24;">Năm:</label>
+            <select id="revenueYearSelect" aria-label="Chọn năm thống kê thu nhập" style="min-width: 140px; border: 1px solid #e5d4a5; border-radius: 10px; padding: 9px 12px; background: #fffdf9; color: #2c241a; font-weight: 600;">
+            </select>
+          </div>
+          <button id="exportRevenuePdfBtn" type="button" class="primary-btn" style="width: auto; min-width: 132px; height: 40px; padding: 9px 16px; border-radius: 10px; font-weight: 700;">Xuất PDF</button>
+        </div>
+        <div class="revenue-summary-card">
+          <div class="revenue-summary-label">Tổng thu nhập cả năm</div>
+          <div class="revenue-summary-value" id="revenueYearValue">0 VNĐ</div>
+        </div>
+        <div class="table-scroll">
+          <table class="revenue-table">
+            <thead>
+              <tr>
+                <th>Tháng</th>
+                <th>Tổng tiền của tháng</th>
+              </tr>
+            </thead>
+            <tbody id="revenueTableBody"></tbody>
+          </table>
+        </div>
+        <article class="revenue-chart-card" aria-labelledby="revenueChartTitle">
+          <h3 id="revenueChartTitle">Biểu đồ thu nhập theo tháng</h3>
+          <p class="revenue-chart-description">Theo dõi biến động doanh thu trong năm được chọn</p>
+          <p class="revenue-chart-description">Bấm vào cột hoặc tên tháng trong bảng để xem lịch sử đặt phòng.</p>
+          <p id="revenueChartMessage" class="revenue-chart-message" role="status" aria-live="polite"></p>
+          <div class="revenue-chart-wrap">
+            <canvas id="revenueChart" role="img" aria-label="Thu nhập 12 tháng; số tiền chi tiết nằm trong bảng phía trên."></canvas>
+          </div>
+        </article>
+      </div>
+    </section>
+
     <footer>© 2026 LumiHotel</footer>
   </main>
 </div>
@@ -269,6 +318,11 @@
     </div>
 
     <label>Tên khách hàng<input id="bookingCustomer" required placeholder="Nguyễn Văn A"></label>
+    <div class="two">
+      <label>Số điện thoại<input id="bookingCustomerPhone" type="tel" inputmode="tel" pattern="0[35789][0-9]{8}" maxlength="10" required placeholder="Nhập số điện thoại khách hàng"></label>
+      <label>CCCD<input id="bookingCustomerIdNumber" type="text" inputmode="numeric" pattern="[0-9]{12}" maxlength="12" required placeholder="Nhập số CCCD khách hàng"></label>
+    </div>
+    <label>Email<input id="bookingCustomerEmail" type="email" placeholder="Nhập email khách hàng (không bắt buộc)"></label>
     <label>Phòng<select id="bookingRoom" required></select></label>
     <div class="two"><label>Ngày nhận phòng<input id="bookingCheckIn" type="date" required></label><label>Ngày trả phòng<input id="bookingCheckOut" type="date" required></label></div>
     <p id="bookingCheckOutError" class="form-message"></p>
@@ -360,31 +414,89 @@
   <div class="modal-box profile-modal-box">
     <button class="modal-close" data-close="profileModal">×</button>
     <span class="section-label">HỒ SƠ CÁ NHÂN</span>
-    <h3>Cập nhật thông tin</h3>
+    <h3>Thay đổi thông tin cá nhân</h3>
     <form id="profileForm">
-      <label>Họ và tên<input id="profileFullName" required></label>
-      <div class="two">
-        <label>Ngày sinh<input id="profileBirthDate" type="date"></label>
-        <label>Email<input id="profileEmail" type="email" readonly></label>
-      </div>
-      <label>Số điện thoại<input id="profilePhone" type="tel" placeholder="0909..."></label>
-      <label>Ảnh đại diện
-        <span class="avatar-picker">
-          <span class="avatar-picker-button">Chọn ảnh từ thư viện</span>
-          <input id="profileAvatarFile" type="file" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
-        </span>
-        <span id="profileAvatarFileName" class="file-name">Chưa chọn ảnh</span>
-      </label>
-      <input id="profileAvatar" type="hidden">
-      <div class="profile-preview-box">
-        <img id="profileAvatarPreview" src="" alt="Ảnh đại diện" onerror="this.style.display='none'">
-      </div>
+      <section class="profile-fields" id="profileFields" aria-label="Thông tin cá nhân">
+          <div class="profile-field" data-profile-field="full_name">
+            <label for="profileFullName">Tên cá nhân</label>
+            <span class="profile-field-value" data-profile-value="full_name">—</span>
+            <input id="profileFullName" data-profile-input="full_name" maxlength="120" required hidden>
+            <button type="button" class="profile-edit-button" data-edit-profile-field="full_name" aria-label="Chỉnh sửa tên cá nhân" title="Chỉnh sửa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L19 8.5 15.5 5 4 16.5Zm13-13 3.5 3.5"/></svg></button>
+          </div>
+          <div class="profile-field" data-profile-field="gender">
+            <label for="profileGender">Giới tính</label>
+            <span class="profile-field-value" data-profile-value="gender">—</span>
+            <select id="profileGender" data-profile-input="gender" hidden><option value="">Chọn giới tính</option><option value="Nam">Nam</option><option value="Nữ">Nữ</option></select>
+            <button type="button" class="profile-edit-button" data-edit-profile-field="gender" aria-label="Chỉnh sửa giới tính" title="Chỉnh sửa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L19 8.5 15.5 5 4 16.5Zm13-13 3.5 3.5"/></svg></button>
+          </div>
+          <div class="profile-field" data-profile-field="birth_date">
+            <label for="profileBirthDate">Ngày sinh</label>
+            <span class="profile-field-value" data-profile-value="birth_date">—</span>
+            <input id="profileBirthDate" data-profile-input="birth_date" type="date" hidden>
+            <button type="button" class="profile-edit-button" data-edit-profile-field="birth_date" aria-label="Chỉnh sửa ngày sinh" title="Chỉnh sửa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L19 8.5 15.5 5 4 16.5Zm13-13 3.5 3.5"/></svg></button>
+          </div>
+          <div class="profile-field" data-profile-field="id_number">
+            <label for="profileIdNumber">Số CCCD/CMND/Hộ chiếu</label>
+            <span class="profile-field-value" data-profile-value="id_number">—</span>
+            <input id="profileIdNumber" data-profile-input="id_number" maxlength="20" autocomplete="off" hidden>
+            <button type="button" class="profile-edit-button" data-edit-profile-field="id_number" aria-label="Chỉnh sửa số giấy tờ" title="Chỉnh sửa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L19 8.5 15.5 5 4 16.5Zm13-13 3.5 3.5"/></svg></button>
+          </div>
+          <div class="profile-field" data-profile-field="phone">
+            <label for="profilePhone">Điện thoại</label>
+            <span class="profile-field-value" data-profile-value="phone">—</span>
+            <input id="profilePhone" data-profile-input="phone" type="tel" inputmode="numeric" maxlength="10" autocomplete="tel" hidden>
+            <button type="button" class="profile-edit-button" data-edit-profile-field="phone" aria-label="Chỉnh sửa điện thoại" title="Chỉnh sửa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L19 8.5 15.5 5 4 16.5Zm13-13 3.5 3.5"/></svg></button>
+          </div>
+          <div class="profile-field" data-profile-field="email">
+            <label for="profileEmail">Email</label>
+            <span class="profile-field-value" data-profile-value="email">—</span>
+            <input id="profileEmail" data-profile-input="email" type="email" maxlength="254" autocomplete="email" required hidden>
+            <button type="button" class="profile-edit-button" data-edit-profile-field="email" aria-label="Chỉnh sửa email" title="Chỉnh sửa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L19 8.5 15.5 5 4 16.5Zm13-13 3.5 3.5"/></svg></button>
+          </div>
+          <div class="profile-field" data-profile-field="contact_name">
+            <label for="profileContactName">Tên liên hệ</label>
+            <span class="profile-field-value" data-profile-value="contact_name">—</span>
+            <input id="profileContactName" data-profile-input="contact_name" maxlength="120" hidden>
+            <button type="button" class="profile-edit-button" data-edit-profile-field="contact_name" aria-label="Chỉnh sửa tên liên hệ" title="Chỉnh sửa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L19 8.5 15.5 5 4 16.5Zm13-13 3.5 3.5"/></svg></button>
+          </div>
+          <div class="profile-field" data-profile-field="contact_address">
+            <label for="profileContactAddress">Địa chỉ liên hệ</label>
+            <span class="profile-field-value" data-profile-value="contact_address">—</span>
+            <input id="profileContactAddress" data-profile-input="contact_address" maxlength="300" hidden>
+            <button type="button" class="profile-edit-button" data-edit-profile-field="contact_address" aria-label="Chỉnh sửa địa chỉ liên hệ" title="Chỉnh sửa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L19 8.5 15.5 5 4 16.5Zm13-13 3.5 3.5"/></svg></button>
+          </div>
+      </section>
       <p id="profileMessage" class="form-message"></p>
-      <div class="profile-extra-actions">
-        <button type="button" class="text-link" id="openPasswordModalBtn">Đổi mật khẩu</button>
-      </div>
-      <div class="form-actions"><button type="button" class="ghost-btn" data-close="profileModal">Hủy</button><button class="primary-btn">Lưu thay đổi</button></div>
+      <div class="form-actions profile-form-actions"><button type="button" class="ghost-btn" data-close="profileModal">Hủy</button><button class="primary-btn">Ghi nhận</button><button type="button" class="text-link" id="openPasswordModalBtn">Đổi mật khẩu</button></div>
     </form>
+  </div>
+</div>
+
+<div class="modal" id="forgotPasswordModal">
+  <div class="modal-box">
+    <button class="modal-close" data-close="forgotPasswordModal">×</button>
+    <span class="section-label">KHÔI PHỤC TÀI KHOẢN</span>
+    <h3>Quên mật khẩu</h3>
+    <form id="forgotPasswordForm">
+      <label>Email<input id="recoveryEmail" type="email" required maxlength="254" placeholder="Nhập email tài khoản" autocomplete="email"></label>
+      <p id="recoveryMessage" class="form-message" aria-live="polite"></p>
+      <div class="form-actions"><button type="button" class="ghost-btn" data-close="forgotPasswordModal">Hủy</button><button class="primary-btn" type="submit">Đặt lại mật khẩu</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal" id="resetPasswordModal">
+  <div class="modal-box">
+    <button class="modal-close" data-close="resetPasswordModal">×</button>
+    <span class="section-label">KHÔI PHỤC TÀI KHOẢN</span>
+    <h3>Đặt lại mật khẩu</h3>
+    <p id="resetMessage" class="form-message" aria-live="polite"></p>
+    <form id="resetPasswordForm" class="hidden">
+      <label>Mật khẩu mới<input id="recoveryPassword" type="password" required minlength="8" maxlength="128" autocomplete="new-password"></label>
+      <label>Xác nhận mật khẩu mới<input id="recoveryConfirmation" type="password" required minlength="8" maxlength="128" autocomplete="new-password"></label>
+      <div class="form-actions"><button type="button" class="ghost-btn" data-close="resetPasswordModal">Hủy</button><button class="primary-btn" type="submit">Đặt lại mật khẩu</button></div>
+    </form>
+    <button type="button" class="link-button" id="recoveryBackToLogin">Quay lại đăng nhập</button>
   </div>
 </div>
 
@@ -394,14 +506,24 @@
     <span class="section-label">BẢO MẬT</span>
     <h3>Đổi mật khẩu</h3>
     <form id="passwordForm">
-      <label id="passwordEmailRow">Email<input id="passwordEmail" type="email" placeholder="Nhập email tài khoản"></label>
-      <div class="two">
-        <label>Mã xác minh<input id="verificationCode" type="text" maxlength="6" placeholder="Nhập 6 chữ số"></label>
-        <button type="button" class="ghost-btn" id="sendVerificationCodeBtn">Gửi mã xác minh</button>
-      </div>
-      <label>Mật khẩu hiện tại<input id="currentPassword" type="password" required placeholder="Nhập mật khẩu hiện tại"></label>
-      <label>Mật khẩu mới<input id="newPassword" type="password" required minlength="8" placeholder="Nhập mật khẩu mới"></label>
-      <label>Xác nhận mật khẩu mới<input id="confirmPassword" type="password" required minlength="8" placeholder="Nhập lại mật khẩu mới"></label>
+      <label class="password-input-group">Mật khẩu hiện tại
+        <div class="password-field">
+          <input id="currentPassword" type="password" required placeholder="Nhập mật khẩu hiện tại">
+          <button type="button" class="password-toggle" data-target="currentPassword" aria-label="Hiện mật khẩu" title="Hiện mật khẩu">👁</button>
+        </div>
+      </label>
+      <label class="password-input-group">Mật khẩu mới
+        <div class="password-field">
+          <input id="newPassword" type="password" required minlength="8" placeholder="Nhập mật khẩu mới">
+          <button type="button" class="password-toggle" data-target="newPassword" aria-label="Hiện mật khẩu" title="Hiện mật khẩu">👁</button>
+        </div>
+      </label>
+      <label class="password-input-group">Xác nhận mật khẩu mới
+        <div class="password-field">
+          <input id="confirmPassword" type="password" required minlength="8" placeholder="Nhập lại mật khẩu mới">
+          <button type="button" class="password-toggle" data-target="confirmPassword" aria-label="Hiện mật khẩu" title="Hiện mật khẩu">👁</button>
+        </div>
+      </label>
       <p id="passwordMessage" class="form-message"></p>
       <div class="form-actions"><button type="button" class="ghost-btn" data-close="passwordModal">Hủy</button><button class="primary-btn">Cập nhật mật khẩu</button></div>
     </form>
@@ -442,6 +564,25 @@
     <div class="checkout-confirmation-actions">
       <button class="checkout-confirmation-cancel" id="roomDeleteConfirmCancel" type="button">Hủy</button>
       <button class="checkout-confirmation-submit" id="roomDeleteConfirmSubmit" type="button">Xác nhận xóa phòng</button>
+    </div>
+  </div>
+</div>
+
+<div class="checkout-confirmation export-pdf-confirmation" id="exportPdfConfirmModal" role="dialog" aria-modal="true" aria-labelledby="exportPdfConfirmTitle" aria-describedby="exportPdfConfirmDescription" hidden>
+  <div class="checkout-confirmation-card">
+    <button class="checkout-confirmation-close" id="exportPdfConfirmClose" type="button" aria-label="Đóng hộp thoại">×</button>
+    <div class="checkout-confirmation-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" focusable="false">
+        <path d="M6.5 2.75h7.15L19.5 8.6v11.65a1 1 0 0 1-1 1h-12a1 1 0 0 1-1-1v-16.5a1 1 0 0 1 1-1Zm6.25 1.9v4h4l-4-4Zm-4 8.05h6.5a.75.75 0 1 0 0-1.5h-6.5a.75.75 0 1 0 0 1.5Zm0 3.25h6.5a.75.75 0 1 0 0-1.5h-6.5a.75.75 0 1 0 0 1.5Z"/>
+      </svg>
+    </div>
+    <span class="section-label">BÁO CÁO THU NHẬP</span>
+    <h3 id="exportPdfConfirmTitle">Xác nhận xuất báo cáo</h3>
+    <p id="exportPdfConfirmDescription">Bạn có chắc chắn muốn xuất file PDF thống kê thu nhập không?</p>
+    <p class="checkout-confirmation-note">Báo cáo sẽ dùng số liệu của năm đang được chọn.</p>
+    <div class="checkout-confirmation-actions">
+      <button class="checkout-confirmation-cancel" id="exportPdfConfirmCancel" type="button">Hủy</button>
+      <button class="checkout-confirmation-submit" id="exportPdfConfirmSubmit" type="button">Xác nhận xuất PDF</button>
     </div>
   </div>
 </div>

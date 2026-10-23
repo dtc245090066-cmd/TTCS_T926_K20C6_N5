@@ -1,20 +1,24 @@
 from __future__ import annotations
 
 import math
-import os
 import random
 import re
-import smtplib
 import sqlite3
-import threading
-import time
+from contextlib import closing
 from datetime import date, datetime
-from email.message import EmailMessage
 from typing import Any
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from backend.database import Database
+
+REVENUE_DATE_FILTER = """
+    check_out IS NOT NULL AND length(check_out) = 10
+    AND check_out GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+    AND strftime('%Y-%m-%d', check_out) = check_out
+    AND CAST(strftime('%Y', check_out) AS INTEGER) = ?
+"""
+REVENUE_STATUSES = "('booked', 'checked_in', 'checked_out')"
 
 
 class AuthService:
@@ -32,7 +36,8 @@ class AuthService:
         with self.database.connect() as connection:
             user = connection.execute(
                 """
-                SELECT id, full_name, email, password_hash, role, birth_date, phone, avatar_url
+                SELECT id, full_name, email, password_hash, role, birth_date, phone,
+                    avatar_url, id_number, gender, contact_name, contact_address
                 FROM users
                 WHERE LOWER(email) = ?
                 """,
@@ -49,14 +54,19 @@ class AuthService:
             "role": user["role"],
             "birth_date": user["birth_date"],
             "phone": user["phone"],
+            "id_number": user["id_number"],
             "avatar_url": user["avatar_url"],
+            "gender": user["gender"],
+            "contact_name": user["contact_name"],
+            "contact_address": user["contact_address"],
         }
 
     def get_profile(self, user_id: int) -> dict[str, Any] | None:
         with self.database.connect() as connection:
             user = connection.execute(
                 """
-                SELECT id, full_name, email, role, birth_date, phone, avatar_url
+                SELECT id, full_name, email, role, birth_date, phone, avatar_url,
+                    id_number, gender, contact_name, contact_address
                 FROM users
                 WHERE id = ?
                 """,
@@ -75,7 +85,8 @@ class AuthService:
         with self.database.connect() as connection:
             current = connection.execute(
                 """
-                SELECT id, full_name, email, role, birth_date, phone, avatar_url
+                SELECT id, full_name, email, role, birth_date, phone, avatar_url,
+                    id_number, gender, contact_name, contact_address
                 FROM users
                 WHERE id = ?
                 """,
@@ -88,10 +99,21 @@ class AuthService:
             full_name = str(payload.get("full_name", current["full_name"] or "")).strip()
             birth_date = str(payload.get("birth_date", current["birth_date"] or "")).strip()
             phone = str(payload.get("phone", current["phone"] or "")).strip()
+            id_number = str(payload.get("id_number", current["id_number"] or "")).strip()
             avatar_url = str(payload.get("avatar_url", current["avatar_url"] or "")).strip()
+            email = str(payload.get("email", current["email"] or "")).strip().lower()
+            gender = str(payload.get("gender", current["gender"] or "")).strip()
+            contact_name = str(payload.get("contact_name", current["contact_name"] or "")).strip()
+            contact_address = str(payload.get("contact_address", current["contact_address"] or "")).strip()
 
             if not full_name or len(full_name) > 120:
                 return False, "Vui lòng nhập họ tên hợp lệ.", None
+
+            if len(email) > 254 or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+                return False, "Vui lòng nhập email hợp lệ.", None
+
+            if gender and gender not in {"Nam", "Nữ"}:
+                return False, "Vui lòng chọn giới tính Nam hoặc Nữ.", None
 
             if birth_date:
                 try:
@@ -99,24 +121,50 @@ class AuthService:
                 except ValueError:
                     return False, "Ngày sinh không hợp lệ.", None
 
-            if phone and len(phone) > 30:
-                return False, "Số điện thoại quá dài.", None
+            if phone and not re.fullmatch(r"0[35789]\d{8}", phone):
+                return False, "Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 03, 05, 07, 08 hoặc 09.", None
+
+            if id_number and not re.fullmatch(r"(?:\d{9}|\d{12}|(?=.*[A-Za-z])[A-Za-z0-9-]{6,20})", id_number):
+                return False, "Số CCCD/CMND/Hộ chiếu không hợp lệ.", None
 
             if avatar_url and len(avatar_url) > 500:
                 return False, "Link ảnh đại diện quá dài.", None
 
-            connection.execute(
-                """
-                UPDATE users
-                SET full_name = ?, birth_date = ?, phone = ?, avatar_url = ?
-                WHERE id = ?
-                """,
-                (full_name, birth_date or None, phone or None, avatar_url or None, user_id),
-            )
+            if len(contact_name) > 120:
+                return False, "Tên liên hệ không được dài quá 120 ký tự.", None
+
+            if len(contact_address) > 300:
+                return False, "Địa chỉ liên hệ không được dài quá 300 ký tự.", None
+
+            duplicate_email = connection.execute(
+                "SELECT id FROM users WHERE LOWER(email) = ? AND id != ?",
+                (email, user_id),
+            ).fetchone()
+            if duplicate_email is not None:
+                return False, "Email này đã được tài khoản khác sử dụng.", None
+
+            try:
+                connection.execute(
+                    """
+                    UPDATE users
+                    SET full_name = ?, email = ?, birth_date = ?, gender = ?,
+                        phone = ?, id_number = ?, avatar_url = ?,
+                        contact_name = ?, contact_address = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        full_name, email, birth_date or None, gender or None,
+                        phone or None, id_number or None, avatar_url or None,
+                        contact_name or None, contact_address or None, user_id,
+                    ),
+                )
+            except sqlite3.IntegrityError:
+                return False, "Email này đã được tài khoản khác sử dụng.", None
 
             updated = connection.execute(
                 """
-                SELECT id, full_name, email, role, birth_date, phone, avatar_url
+                SELECT id, full_name, email, role, birth_date, phone, avatar_url,
+                    id_number, gender, contact_name, contact_address
                 FROM users
                 WHERE id = ?
                 """,
@@ -125,61 +173,6 @@ class AuthService:
 
         return True, "Cập nhật thông tin thành công.", dict(updated)
 
-    def request_password_change_code(self, email: str) -> tuple[bool, str, str | None]:
-        normalized_email = (email or "").strip().lower()
-        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", normalized_email):
-            return False, "Vui lòng nhập email hợp lệ để nhận mã xác minh.", None
-
-        with self.database.connect() as connection:
-            user = connection.execute(
-                "SELECT id FROM users WHERE LOWER(email) = ?",
-                (normalized_email,),
-            ).fetchone()
-
-        if user is None:
-            return False, "Email chưa được đăng ký trong hệ thống.", None
-
-        code = f"{random.randint(100000, 999999)}"
-        with PASSWORD_VERIFICATION_LOCK:
-            PASSWORD_VERIFICATION_CODES[normalized_email] = {
-                "code": code,
-                "expires_at": time.time() + 300,
-            }
-
-        sent = send_password_verification_email(normalized_email, code)
-        if not sent:
-            return False, "Không thể gửi mã xác minh đến email. Vui lòng thử lại sau.", None
-
-        smtp_username = os.environ.get("SMTP_USERNAME")
-        smtp_password = os.environ.get("SMTP_PASSWORD")
-        if not smtp_username or not smtp_password:
-            return True, (
-                "Đang ở chế độ phát triển: mã xác minh đã được tạo và hiển thị trong terminal/console. "
-                "Vui lòng kiểm tra log để lấy mã xác minh."
-            ), code
-
-        return True, "Mã xác minh đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư.", code
-
-    def validate_password_verification_code(self, email: str, code: str | None) -> tuple[bool, str]:
-        normalized_email = (email or "").strip().lower()
-        if not normalized_email:
-            return False, "Vui lòng nhập email để xác thực tài khoản."
-        if not code or not str(code).strip():
-            return False, "Vui lòng nhập mã xác minh được gửi về email."
-
-        with PASSWORD_VERIFICATION_LOCK:
-            record = PASSWORD_VERIFICATION_CODES.get(normalized_email)
-            if record is None:
-                return False, "Bạn chưa yêu cầu hoặc mã xác minh đã hết hạn. Vui lòng gửi lại mã." 
-            if time.time() > float(record["expires_at"]):
-                PASSWORD_VERIFICATION_CODES.pop(normalized_email, None)
-                return False, "Mã xác minh đã hết hạn. Vui lòng yêu cầu lại mã mới."
-            if str(record["code"]) != str(code).strip():
-                return False, "Mã xác minh không đúng. Vui lòng kiểm tra lại email."
-
-        PASSWORD_VERIFICATION_CODES.pop(normalized_email, None)
-        return True, "Mã xác minh hợp lệ."
-
     def change_password(
         self,
         user_id: int | None,
@@ -187,7 +180,6 @@ class AuthService:
         new_password: str,
         confirm_password: str,
         email: str | None = None,
-        verification_code: str | None = None,
     ) -> tuple[bool, str]:
         if not all(isinstance(value, str) for value in (current_password, new_password, confirm_password)):
             return False, "Dữ liệu mật khẩu không hợp lệ."
@@ -196,7 +188,6 @@ class AuthService:
         new_password = new_password.strip()
         confirm_password = confirm_password.strip()
         email = (email or "").strip().lower()
-        verification_code = (verification_code or "").strip()
 
         if not current_password or not new_password or not confirm_password:
             return False, "Vui lòng nhập đầy đủ mật khẩu hiện tại, mật khẩu mới và xác nhận mật khẩu mới."
@@ -227,12 +218,6 @@ class AuthService:
             if user is None:
                 return False, "Người dùng không tồn tại."
 
-            if verification_code:
-                email_to_verify = email or user["email"]
-                valid, message = self.validate_password_verification_code(email_to_verify, verification_code)
-                if not valid:
-                    return False, message
-
             if not check_password_hash(user["password_hash"], current_password):
                 return False, "Mật khẩu hiện tại không đúng."
 
@@ -256,72 +241,27 @@ class AuthService:
         if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
             return False, "Vui lòng nhập email hợp lệ."
 
-        if len(password) < 8 or len(password) > 128:
+        if not password.strip() or len(password) < 8 or len(password) > 128:
             return False, "Mật khẩu cần có từ 8 đến 128 ký tự."
+
+        with self.database.connect() as connection:
+            existing_user = connection.execute(
+                "SELECT id FROM users WHERE LOWER(email) = ?",
+                (email,),
+            ).fetchone()
+        if existing_user is not None:
+            return False, "Email này đã được đăng ký."
 
         try:
             with self.database.connect() as connection:
                 connection.execute(
-                    """
-                    INSERT INTO users(full_name, email, password_hash, role)
-                    VALUES (?, ?, ?, 'staff')
-                    """,
+                    "INSERT INTO users(full_name, email, password_hash, role) VALUES (?, ?, ?, 'staff')",
                     (full_name, email, generate_password_hash(password)),
                 )
         except sqlite3.IntegrityError:
             return False, "Email này đã được đăng ký."
 
-        return True, "Tạo tài khoản thành công. Bạn có thể đăng nhập ngay."
-
-
-PASSWORD_VERIFICATION_CODES: dict[str, dict[str, float | str]] = {}
-PASSWORD_VERIFICATION_LOCK = threading.Lock()
-
-
-def normalize_smtp_settings() -> dict[str, str]:
-    smtp_username = (os.environ.get("SMTP_USERNAME") or "").strip()
-    smtp_password = (os.environ.get("SMTP_PASSWORD") or "").replace(" ", "").strip()
-    smtp_from = (os.environ.get("SMTP_FROM") or smtp_username or "no-reply@lumihotel.local").strip()
-    return {
-        "host": (os.environ.get("SMTP_HOST") or "smtp.gmail.com").strip(),
-        "port": str(os.environ.get("SMTP_PORT") or "587").strip(),
-        "username": smtp_username,
-        "password": smtp_password,
-        "from": smtp_from,
-    }
-
-
-def send_password_verification_email(email: str, code: str) -> bool:
-    settings = normalize_smtp_settings()
-    smtp_host = settings["host"]
-    smtp_port = int(settings["port"])
-    smtp_username = settings["username"]
-    smtp_password = settings["password"]
-    smtp_from = settings["from"]
-
-    if not smtp_username or not smtp_password:
-        print(f"[DEV_EMAIL_CODE] Gửi mã xác minh đến {email}: {code}")
-        return True
-
-    try:
-        message = EmailMessage()
-        message["Subject"] = "Mã xác minh đổi mật khẩu LumiHotel"
-        message["From"] = smtp_from
-        message["To"] = email
-        message.set_content(
-            "Mã xác minh đổi mật khẩu của bạn là: "
-            f"{code}\n\nMã này có hiệu lực trong 5 phút."
-        )
-
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.starttls()
-            server.login(smtp_username, smtp_password)
-            server.send_message(message)
-        print(f"[EMAIL_SENT] Đã gửi mã xác minh tới {email}")
-        return True
-    except Exception as exc:
-        print(f"[EMAIL_ERROR] {exc}")
-        return False
+        return True, "Tạo tài khoản thành công. Bạn có thể đăng nhập."
 
 
 class RoomTypeService:
@@ -748,6 +688,60 @@ class BookingService:
     def __init__(self, database: Database) -> None:
         self.database = database
 
+    def get_revenue_history(self, year, month, search="", status="", page=1):
+        period = REVENUE_DATE_FILTER + " AND CAST(strftime('%m', check_out) AS INTEGER) = ?"
+        params = [year, month]
+        joins = """ FROM bookings b
+            LEFT JOIN rooms r ON r.id = b.room_id
+            LEFT JOIN room_types rt ON rt.id = r.room_type_id
+            LEFT JOIN customers c ON c.id = b.customer_id """
+        filters = period
+        if status:
+            filters += " AND b.status = ?"
+            params.append(status)
+        if search:
+            filters += " AND (instr(casefold(b.code), ?) > 0 OR instr(casefold(b.customer_name), ?) > 0 OR instr(COALESCE(c.phone, ''), ?) > 0)"
+            params.extend([search.casefold(), search.casefold(), search])
+        with closing(self.database.connect()) as connection:
+            connection.execute("BEGIN")
+            connection.create_function("casefold", 1, lambda value: (value or "").casefold())
+            summary = dict(connection.execute(f"""
+                SELECT COUNT(*) AS booking_count, COALESCE(SUM(total), 0) AS booking_value,
+                    COALESCE(SUM(CASE WHEN status IN {REVENUE_STATUSES} THEN total ELSE 0 END), 0) AS revenue,
+                    SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_count
+                FROM bookings WHERE {period}
+            """, (year, month)).fetchone())
+            count = connection.execute("SELECT COUNT(*)" + joins + " WHERE " + filters, params).fetchone()[0]
+            pages = max(1, math.ceil(count / 20))
+            page = min(page, pages)
+            rows = connection.execute("""SELECT b.*, c.phone AS customer_phone,
+                c.email AS customer_email, r.code AS room_code, r.name AS room_name,
+                rt.name AS room_type_name""" + joins + " WHERE " + filters
+                + " ORDER BY b.check_out DESC, b.id DESC LIMIT 20 OFFSET ?", params + [(page - 1) * 20]).fetchall()
+        return {"year": year, "month": month, "summary": summary,
+                "bookings": [self._history_booking(row) for row in rows],
+                "page": page, "pages": pages, "count": count}
+
+    @staticmethod
+    def _history_booking(row):
+        item = dict(row)
+        try:
+            item["nights"] = (date.fromisoformat(item["check_out"]) - date.fromisoformat(item["check_in"])).days
+        except (TypeError, ValueError):
+            item["nights"] = None
+        return item
+
+    def get_history_detail(self, booking_id):
+        with closing(self.database.connect()) as connection:
+            row = connection.execute("""SELECT b.*, c.phone AS customer_phone,
+                c.email AS customer_email, r.code AS room_code, r.name AS room_name,
+                rt.name AS room_type_name
+                FROM bookings b LEFT JOIN rooms r ON r.id = b.room_id
+                LEFT JOIN room_types rt ON rt.id = r.room_type_id
+                LEFT JOIN customers c ON c.id = b.customer_id WHERE b.id = ?
+            """, (booking_id,)).fetchone()
+        return self._history_booking(row) if row else None
+
     def list_bookings(self) -> list[dict[str, Any]]:
         with self.database.connect() as connection:
             rows = connection.execute(
@@ -756,9 +750,12 @@ class BookingService:
                     b.id, b.code, b.customer_name, b.check_in,
                     b.check_out, b.check_in_time, b.check_out_time,
                     b.total, b.status,
+                    c.phone AS customer_phone, c.id_number AS customer_id_number,
+                    c.email AS customer_email,
                     r.code AS room_code, r.name AS room_name
                 FROM bookings b
                 JOIN rooms r ON r.id = b.room_id
+                LEFT JOIN customers c ON c.id = b.customer_id
                 ORDER BY b.id DESC
                 """
             ).fetchall()
@@ -767,6 +764,9 @@ class BookingService:
 
     def create_booking(self, payload: dict[str, Any]):
         customer = str(payload.get("customer_name", "")).strip()
+        phone = str(payload.get("customer_phone", "")).strip()
+        id_number = str(payload.get("customer_id_number", "")).strip()
+        email = str(payload.get("customer_email", "")).strip().lower()
         room_id = payload.get("room_id")
         check_in = str(payload.get("check_in", "")).strip()
         check_out = str(payload.get("check_out", "")).strip()
@@ -776,6 +776,12 @@ class BookingService:
 
         if not customer:
             return False, "Vui lòng nhập tên khách hàng.", None
+        if not re.fullmatch(r"0[35789]\d{8}", phone):
+            return False, "Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 03, 05, 07, 08 hoặc 09.", None
+        if not re.fullmatch(r"\d{12}", id_number):
+            return False, "CCCD phải gồm đúng 12 chữ số.", None
+        if email and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
+            return False, "Email khách hàng không hợp lệ.", None
 
         try:
             room_id = int(room_id)
@@ -826,13 +832,15 @@ class BookingService:
             if not math.isfinite(room_price) or room_price <= 0:
                 return False, "Giá phòng không hợp lệ.", None
 
-            if check_in_time and check_out_time:
+            nights = (end - start).days
+            if nights > 0:
+                computed_total = nights * room_price
+            elif check_in_time and check_out_time:
                 delta_hours = (datetime.strptime(f"{check_out} {check_out_time}", "%Y-%m-%d %H:%M") - datetime.strptime(f"{check_in} {check_in_time}", "%Y-%m-%d %H:%M")).total_seconds() / 3600
                 if delta_hours <= 0:
                     return False, "Thời gian thuê phải lớn hơn 0 giờ.", None
                 computed_total = room_price * (delta_hours / 24)
             else:
-                nights = (end - start).days
                 if nights <= 0:
                     return False, "Thời gian thuê phải lớn hơn 0 ngày.", None
                 computed_total = nights * room_price
@@ -855,17 +863,41 @@ class BookingService:
             code = "BK-" + datetime.now().strftime("%m%d%H%M%S")
 
             try:
+                existing_customer = connection.execute(
+                    "SELECT id, email FROM customers WHERE id_number = ? ORDER BY id DESC LIMIT 1",
+                    (id_number,),
+                ).fetchone()
+                if existing_customer is None:
+                    customer_cursor = connection.execute(
+                        """
+                        INSERT INTO customers(full_name, phone, email, id_number)
+                        VALUES (?, ?, ?, ?)
+                        """,
+                        (customer, phone, email or None, id_number),
+                    )
+                    customer_id = customer_cursor.lastrowid
+                else:
+                    customer_id = existing_customer["id"]
+                    connection.execute(
+                        """
+                        UPDATE customers
+                        SET full_name = ?, phone = ?, email = COALESCE(?, email)
+                        WHERE id = ?
+                        """,
+                        (customer, phone, email or None, customer_id),
+                    )
+
                 cursor = connection.execute(
                     """
                     INSERT INTO bookings(
-                        code, customer_name, room_id,
+                        code, customer_name, customer_id, room_id,
                         check_in, check_out, check_in_time, check_out_time,
                         total, status
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'booked')
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'booked')
                     """,
                     (
-                        code, customer, room_id, check_in, check_out,
+                        code, customer, customer_id, room_id, check_in, check_out,
                         check_in_time, check_out_time, total,
                     ),
                 )
@@ -875,9 +907,12 @@ class BookingService:
                 )
                 booking = connection.execute(
                     """
-                    SELECT b.*, r.code AS room_code, r.name AS room_name
+                    SELECT b.*, r.code AS room_code, r.name AS room_name,
+                        c.phone AS customer_phone, c.id_number AS customer_id_number,
+                        c.email AS customer_email
                     FROM bookings b
                     JOIN rooms r ON r.id = b.room_id
+                    LEFT JOIN customers c ON c.id = b.customer_id
                     WHERE b.id = ?
                     """,
                     (cursor.lastrowid,),
@@ -892,7 +927,44 @@ class DashboardService:
     def __init__(self, database: Database) -> None:
         self.database = database
 
+    def get_monthly_revenue(self, year: int | None = None) -> dict[str, Any]:
+        current_year = int(year or datetime.now().year)
+
+        with self.database.connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT CAST(strftime('%m', check_out) AS INTEGER) AS month,
+                       COALESCE(SUM(total), 0) AS total
+                FROM bookings
+                WHERE status IN {REVENUE_STATUSES} AND {REVENUE_DATE_FILTER}
+                GROUP BY CAST(strftime('%m', check_out) AS INTEGER)
+                ORDER BY month ASC
+                """,
+                (current_year,),
+            ).fetchall()
+
+        totals_by_month = {
+            int(row["month"]): float(row["total"] or 0)
+            for row in rows
+        }
+        months = [
+            {
+                "month": month,
+                "total": totals_by_month.get(month, 0.0),
+            }
+            for month in range(1, 13)
+        ]
+        total_revenue = sum(item["total"] for item in months)
+
+        return {
+            "year": current_year,
+            "months": months,
+            "total": total_revenue,
+        }
+
     def get_summary(self) -> dict[str, Any]:
+        revenue_summary = self.get_monthly_revenue()
+
         with self.database.connect() as connection:
             rooms = connection.execute(
                 "SELECT COUNT(*) AS total FROM rooms"
@@ -918,14 +990,6 @@ class DashboardService:
                 "SELECT COUNT(*) AS total FROM bookings"
             ).fetchone()["total"]
 
-            revenue = connection.execute(
-                """
-                SELECT COALESCE(SUM(total), 0) AS total
-                FROM bookings
-                WHERE status IN ('booked', 'checked_in', 'checked_out')
-                """
-            ).fetchone()["total"]
-
         occupancy = round((occupied / rooms) * 100, 1) if rooms else 0
 
         return {
@@ -935,6 +999,7 @@ class DashboardService:
             "cleaning_rooms": cleaning,
             "maintenance_rooms": maintenance,
             "bookings": bookings,
-            "revenue": revenue,
+            "revenue": revenue_summary["total"],
             "occupancy": occupancy,
+            "year": revenue_summary["year"],
         }

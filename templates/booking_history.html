@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lịch sử đặt phòng — LumiHotel</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/booking-history.css') }}">
+  <script defer src="{{ url_for('static', filename='js/booking-history.js') }}"></script>
+</head>
+<body>
+  <main class="history-page">
+    <header class="history-header">
+      <div><span class="section-label">LUMIHOTEL / DOANH THU</span><h1>Lịch sử đặt phòng</h1><p id="historyPeriod"></p></div>
+      <a id="backToRevenue" class="history-button" href="/?view=revenue">← Thống kê thu nhập</a>
+    </header>
+    <p class="history-note">Lọc theo ngày trả phòng. Doanh thu báo cáo gồm đơn đã đặt, đang ở và đã trả phòng; không gồm đơn đã hủy. Đây không phải tổng tiền thực thu. Hệ thống chưa lưu dữ liệu thanh toán.</p>
+    <section class="history-stats" aria-label="Tổng quan tháng">
+      <article><span>Tổng số đơn</span><strong id="historyCount">—</strong></article>
+      <article><span>Doanh thu tháng</span><strong id="historyRevenue">—</strong></article>
+      <article><span>Số đơn đã thanh toán</span><strong>—</strong><small>Chưa lưu dữ liệu thanh toán</small></article>
+      <article><span>Số đơn đã hủy</span><strong id="historyCancelled">—</strong></article>
+    </section>
+    <section class="panel">
+      <p id="historyValue" class="history-note"></p>
+      <form id="historyFilters" class="history-filters">
+        <label>Tìm kiếm<input name="search" maxlength="200" placeholder="Mã đơn, tên khách, số điện thoại"></label>
+        <label>Trạng thái đặt phòng<select name="status"><option value="">Tất cả</option><option value="booked">Đã đặt</option><option value="checked_in">Đang ở</option><option value="checked_out">Đã trả phòng</option><option value="cancelled">Đã hủy</option></select></label>
+        <label>Thanh toán<select name="payment"><option value="">Tất cả</option><option value="unknown">Chưa có dữ liệu</option></select></label>
+        <button class="history-button" type="submit">Áp dụng</button>
+      </form>
+      <p id="historyMessage" role="status" aria-live="polite"></p>
+      <div class="history-table-scroll" tabindex="0" aria-label="Bảng lịch sử đặt phòng, có thể cuộn ngang">
+        <table><thead><tr><th>Mã đặt phòng</th><th>Khách hàng</th><th>Điện thoại</th><th>Email</th><th>Phòng</th><th>Nhận phòng</th><th>Trả phòng</th><th>Số đêm</th><th>Tổng tiền</th><th>Đặt phòng</th><th>Thanh toán</th><th>Thao tác</th></tr></thead><tbody id="historyRows"></tbody></table>
+      </div>
+      <nav class="history-pagination" aria-label="Phân trang"><button id="historyPrevious" type="button">Trang trước</button><span id="historyPage"></span><button id="historyNext" type="button">Trang sau</button></nav>
+    </section>
+  </main>
+  <dialog id="historyDetail" aria-labelledby="historyDetailTitle">
+    <header class="history-header"><h2 id="historyDetailTitle">Chi tiết đặt phòng</h2><button id="closeHistoryDetail" type="button">Quay lại danh sách</button></header>
+    <div id="historyDetailContent" aria-live="polite"></div>
+  </dialog>
+</body>
+</html>

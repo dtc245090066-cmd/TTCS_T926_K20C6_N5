@@ -31,6 +31,21 @@ class Database:
     def initialize(self) -> None:
         with self.connect() as connection:
             connection.execute("""
+                CREATE TABLE IF NOT EXISTS password_resets (
+                    token_hash TEXT PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    expires_at REAL NOT NULL
+                )
+            """)
+            connection.execute("""
+                CREATE TABLE IF NOT EXISTS password_reset_limits (
+                    bucket TEXT PRIMARY KEY,
+                    started_at REAL NOT NULL,
+                    attempts INTEGER NOT NULL
+                )
+            """)
+            connection.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     full_name TEXT NOT NULL,
@@ -47,7 +62,15 @@ class Database:
             user_columns = {
                 row["name"] for row in connection.execute("PRAGMA table_info(users)").fetchall()
             }
-            for column_name in ("birth_date", "phone", "avatar_url"):
+            for column_name in (
+                "birth_date",
+                "phone",
+                "avatar_url",
+                "id_number",
+                "gender",
+                "contact_name",
+                "contact_address",
+            ):
                 if column_name not in user_columns:
                     connection.execute(
                         f"ALTER TABLE users ADD COLUMN {column_name} TEXT"
@@ -131,6 +154,7 @@ class Database:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     code TEXT NOT NULL UNIQUE,
                     customer_name TEXT NOT NULL,
+                    customer_id INTEGER REFERENCES customers(id),
                     room_id INTEGER NOT NULL,
                     check_in TEXT NOT NULL,
                     check_out TEXT NOT NULL,
@@ -147,10 +171,12 @@ class Database:
             booking_columns = {
                 row["name"] for row in connection.execute("PRAGMA table_info(bookings)").fetchall()
             }
-            for column_name in ("check_in_time", "check_out_time"):
+            for column_name in ("customer_id", "check_in_time", "check_out_time"):
                 if column_name not in booking_columns:
                     connection.execute(
-                        f"ALTER TABLE bookings ADD COLUMN {column_name} TEXT"
+                        "ALTER TABLE bookings ADD COLUMN customer_id INTEGER REFERENCES customers(id)"
+                        if column_name == "customer_id"
+                        else f"ALTER TABLE bookings ADD COLUMN {column_name} TEXT"
                     )
 
             existing_user = connection.execute(

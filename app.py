@@ -2,12 +2,25 @@ from __future__ import annotations
 
 import os
 import uuid
+from datetime import datetime
+from io import BytesIO
+from pathlib import Path
 
-from flask import Flask, jsonify, render_template, request, session
+from flask import Flask, jsonify, render_template, request, send_file, session
 from dotenv import load_dotenv
+from reportlab.lib import colors
+from reportlab.graphics.shapes import Drawing, Line, Rect, String
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import cm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle, PageBreak
 from werkzeug.utils import secure_filename
 
 from backend.database import Database
+from backend.password_reset import PasswordResetService
 from backend.services import AuthService, RoomService, RoomTypeService, BookingService, DashboardService
 
 
@@ -29,6 +42,7 @@ app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
 database = Database(app.config["DATABASE_PATH"])
 
 auth_service = AuthService(database)
+password_reset_service = PasswordResetService(database)
 room_service = RoomService(database)
 room_type_service = RoomTypeService(database)
 booking_service = BookingService(database)
@@ -76,6 +90,8 @@ def login():
 @app.post("/api/register")
 def register():
     payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        return jsonify({"ok": False, "message": "Thông tin đăng ký không hợp lệ."}), 400
     ok, message = auth_service.register(
         payload.get("full_name", ""),
         payload.get("email", ""),
@@ -123,47 +139,47 @@ def update_profile():
     return jsonify({"ok": ok, "message": message, "user": profile}), 200 if ok else 400
 
 
-@app.post("/api/profile/password/request-code")
-def request_password_change_code():
-    payload = request.get_json(silent=True) or {}
-    email = str(payload.get("email", "") or "").strip().lower()
-    if login_required() and not email:
-        email = session["user"].get("email", "")
-
-    if not email:
-        return jsonify({"ok": False, "message": "Vui lòng nhập email để nhận mã xác minh."}), 400
-
-    ok, message, code = auth_service.request_password_change_code(email)
-    return jsonify({"ok": ok, "message": message, "debug_code": code}), 200 if ok else 400
-
-
 @app.post("/api/profile/password")
 def update_password():
+    if not login_required():
+        return jsonify({"ok": False, "message": "Vui lòng đăng nhập."}), 401
     payload = request.get_json(silent=True) or {}
     email = str(payload.get("email", "") or "").strip().lower()
-    verification_code = str(payload.get("verification_code", "") or "").strip()
 
-    if login_required():
-        user_id = session["user"]["id"]
-        ok, message = auth_service.change_password(
-            user_id,
-            str(payload.get("current_password", "") or ""),
-            str(payload.get("new_password", "") or ""),
-            str(payload.get("confirm_password", "") or ""),
-            email=email or session["user"].get("email", ""),
-            verification_code=verification_code,
-        )
-        return jsonify({"ok": ok, "message": message}), 200 if ok else 400
-
+    user_id = session["user"]["id"]
     ok, message = auth_service.change_password(
-        None,
+        user_id,
         str(payload.get("current_password", "") or ""),
         str(payload.get("new_password", "") or ""),
         str(payload.get("confirm_password", "") or ""),
-        email=email,
-        verification_code=verification_code,
+        email=email or session["user"].get("email", ""),
     )
     return jsonify({"ok": ok, "message": message}), 200 if ok else 400
+
+
+@app.post("/api/password/forgot")
+def forgot_password():
+    payload = request.get_json(silent=True)
+    payload = payload if isinstance(payload, dict) else {}
+    ok, message, status = password_reset_service.request_reset(payload.get("email"), request.remote_addr)
+    return jsonify({"ok": ok, "message": message}), status
+
+
+@app.post("/api/password/verify")
+@app.post("/api/password/reset")
+def reset_password():
+    payload = request.get_json(silent=True)
+    payload = payload if isinstance(payload, dict) else {}
+    verify_only = request.path.endswith("/verify")
+    ok, message, status = password_reset_service.reset(
+        payload.get("token"), payload.get("password"), payload.get("confirmation"),
+        request.remote_addr, verify_only=verify_only,
+    )
+    if ok and not verify_only:
+        session.clear()
+    response = jsonify({"ok": ok, "message": message})
+    response.headers["Cache-Control"] = "no-store"
+    return response, status
 
 
 @app.post("/api/profile/avatar")
@@ -191,6 +207,291 @@ def dashboard():
     if not login_required():
         return jsonify({"ok": False, "message": "Vui lòng đăng nhập."}), 401
     return jsonify({"ok": True, **dashboard_service.get_summary()})
+
+
+@app.get("/api/revenue-statistics")
+def revenue_statistics():
+    if not login_required():
+        return jsonify({"ok": False, "message": "Vui lòng đăng nhập."}), 401
+
+    raw_year = request.args.get("year", "").strip()
+    if raw_year:
+        try:
+            selected_year = int(raw_year)
+            if not 1 <= selected_year <= 9999:
+                raise ValueError
+        except ValueError:
+            return jsonify({"ok": False, "message": "Năm thống kê không hợp lệ."}), 400
+        return jsonify({"ok": True, **dashboard_service.get_monthly_revenue(selected_year)})
+
+    return jsonify({"ok": True, **dashboard_service.get_monthly_revenue()})
+
+
+def get_pdf_font_name() -> str:
+    """Register a Unicode font so the revenue report renders Vietnamese correctly."""
+    font_name = "LumiHotelUnicode"
+    if font_name in pdfmetrics.getRegisteredFontNames():
+        return font_name
+
+    font_paths = (
+        Path(os.environ.get("PDF_FONT_PATH", "")),
+        Path("C:/Windows/Fonts/arial.ttf"),
+        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+        Path("/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"),
+    )
+    for font_path in font_paths:
+        if font_path.is_file():
+            pdfmetrics.registerFont(TTFont(font_name, str(font_path)))
+            return font_name
+
+    raise RuntimeError("Không tìm thấy font Unicode để tạo PDF tiếng Việt.")
+
+
+def format_vnd(amount: float) -> str:
+    """Match the Vietnamese whole-number currency presentation used by the UI."""
+    return f"{round(float(amount or 0)):,}".replace(",", ".") + " đ"
+
+
+def build_revenue_pdf_chart(months, font_name):
+    drawing = Drawing(452, 270)
+    values = [float(item["total"] or 0) for item in months]
+    ceiling = max(values) * 1.1 if max(values) > 0 else 4
+    left, bottom, width, height = 80, 36, 360, 205
+    for step in range(5):
+        y = bottom + height * step / 4
+        drawing.add(Line(left, y, left + width, y, strokeColor=colors.HexColor("#EDE5DA")))
+        label = f"{ceiling * step / 4:,.0f}".replace(",", ".")
+        drawing.add(String(left - 8, y - 3, label, fontName=font_name, fontSize=7, textAnchor="end"))
+    drawing.add(String(left, 257, "Thu nhập (VNĐ)", fontName=font_name, fontSize=9))
+    for index, value in enumerate(values):
+        x = left + index * width / 12
+        drawing.add(Rect(x + 6, bottom, 18, max(value, 0) / ceiling * height,
+                         fillColor=colors.HexColor("#6E4B2D" if value > 0 and value == max(values) else "#B58B59"), strokeColor=None))
+        drawing.add(String(x + 15, 20, f"T{index + 1}", fontName=font_name, fontSize=8, textAnchor="middle"))
+    return drawing
+
+
+def draw_pdf_footer(canvas, document) -> None:
+    """Draw a restrained LumiHotel footer on every generated report page."""
+    canvas.saveState()
+    page_width, _ = A4
+    canvas.setStrokeColor(colors.HexColor("#C89B52"))
+    canvas.setLineWidth(0.75)
+    canvas.line(document.leftMargin, 1.28 * cm, page_width - document.rightMargin, 1.28 * cm)
+    canvas.setFillColor(colors.HexColor("#6E4B2D"))
+    canvas.setFont(get_pdf_font_name(), 8)
+    canvas.drawString(document.leftMargin, 0.82 * cm, "LumiHotel • Hotel Management")
+    canvas.drawRightString(
+        page_width - document.rightMargin,
+        0.82 * cm,
+        f"Báo cáo thống kê thu nhập • Trang {document.page}",
+    )
+    canvas.restoreState()
+
+
+@app.get("/api/revenue-statistics/export")
+def export_revenue_statistics_pdf():
+    if not login_required():
+        return jsonify({"ok": False, "message": "Vui lòng đăng nhập."}), 401
+
+    raw_year = request.args.get("year", "").strip()
+    try:
+        selected_year = int(raw_year) if raw_year else None
+        if selected_year is not None and not 1 <= selected_year <= 9999:
+            raise ValueError
+    except ValueError:
+        return jsonify({"ok": False, "message": "Năm thống kê không hợp lệ."}), 400
+
+    try:
+        report = dashboard_service.get_monthly_revenue(selected_year)
+        font_name = get_pdf_font_name()
+        buffer = BytesIO()
+        document = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            rightMargin=1.8 * cm,
+            leftMargin=1.8 * cm,
+            topMargin=1.1 * cm,
+            bottomMargin=1.45 * cm,
+        )
+        styles = getSampleStyleSheet()
+        brand_style = styles["BodyText"].clone("PdfBrand")
+        brand_style.fontName = font_name
+        brand_style.fontSize = 18
+        brand_style.leading = 21
+        brand_style.textColor = colors.HexColor("#10263F")
+        title_style = styles["Title"].clone("VietnameseTitle")
+        title_style.fontName = font_name
+        title_style.fontSize = 17
+        title_style.leading = 22
+        title_style.alignment = TA_CENTER
+        title_style.textColor = colors.HexColor("#10263F")
+        body_style = styles["BodyText"].clone("VietnameseBody")
+        body_style.fontName = font_name
+        body_style.fontSize = 9.2
+        body_style.leading = 13
+        body_style.textColor = colors.HexColor("#253746")
+        center_style = body_style.clone("PdfCenter")
+        center_style.alignment = TA_CENTER
+        small_style = body_style.clone("PdfSmall")
+        small_style.fontSize = 8
+        small_style.leading = 11
+        metric_label_style = body_style.clone("PdfMetricLabel")
+        metric_label_style.fontSize = 7.4
+        metric_label_style.leading = 10
+        metric_label_style.textColor = colors.HexColor("#786B5B")
+        metric_value_style = body_style.clone("PdfMetricValue")
+        metric_value_style.fontSize = 12.5
+        metric_value_style.leading = 16
+        metric_value_style.textColor = colors.HexColor("#10263F")
+
+        months = report["months"]
+        month_totals = [float(item["total"] or 0) for item in months]
+        revenue_month_count = sum(total > 0 for total in month_totals)
+        has_revenue = revenue_month_count > 0
+        highest_index = max(range(12), key=month_totals.__getitem__)
+        lowest_index = min(range(12), key=month_totals.__getitem__)
+        highest_detail = (
+            f"{format_vnd(month_totals[highest_index])}<br/><font size=\"7.5\">Tháng {highest_index + 1}</font>"
+            if has_revenue else "0 đ<br/><font size=\"7.5\">Chưa có doanh thu</font>"
+        )
+        lowest_detail = (
+            f"{format_vnd(month_totals[lowest_index])}<br/><font size=\"7.5\">Tháng {lowest_index + 1}</font>"
+            if has_revenue else "0 đ<br/><font size=\"7.5\">Chưa có doanh thu</font>"
+        )
+
+        def metric(label: str, value: str) -> Paragraph:
+            return Paragraph(
+                f'<font color="#786B5B" size="7.4">{label}</font><br/>{value}',
+                metric_value_style,
+            )
+
+        brand = Table([
+            [
+                Paragraph("L", brand_style),
+                Paragraph("LumiHotel<br/><font size=\"7.5\" color=\"#786B5B\">HOTEL MANAGEMENT</font>", brand_style),
+                Paragraph(
+                    f"<font size=\"8\" color=\"#786B5B\">NĂM THỐNG KÊ</font><br/><font size=\"13\">{report['year']}</font>",
+                    body_style,
+                ),
+            ]
+        ], colWidths=[1.05 * cm, 11.1 * cm, 3.8 * cm], rowHeights=[1.12 * cm])
+        brand.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (0, 0), colors.HexColor("#C89B52")),
+            ("BOX", (0, 0), (0, 0), 0.5, colors.HexColor("#B6853E")),
+            ("ALIGN", (0, 0), (0, 0), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (2, 0), (2, 0), "RIGHT"),
+            ("LEFTPADDING", (1, 0), (1, 0), 8),
+            ("RIGHTPADDING", (2, 0), (2, 0), 2),
+        ]))
+        gold_rule = Table([[""]], colWidths=[15.95 * cm], rowHeights=[0.08 * cm])
+        gold_rule.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#C89B52"))]))
+
+        overview = Table([
+            [
+                metric("TỔNG THU NHẬP CẢ NĂM", format_vnd(report["total"])),
+                metric("SỐ THÁNG CÓ DOANH THU", f"{revenue_month_count} / 12"),
+            ],
+            [
+                metric("DOANH THU CAO NHẤT", highest_detail),
+                metric("DOANH THU THẤP NHẤT", lowest_detail),
+            ],
+        ], colWidths=[7.975 * cm, 7.975 * cm], rowHeights=[1.42 * cm, 1.42 * cm])
+        overview.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#FCF8F0")),
+            ("BOX", (0, 0), (-1, -1), 0.55, colors.HexColor("#E3D0A2")),
+            ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#E3D0A2")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 12),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+        ]))
+
+        rows = [["STT", "Tháng", "Tổng tiền của tháng"]]
+        rows.extend([
+            [str(index), f"Tháng {item['month']}", format_vnd(item["total"])]
+            for index, item in enumerate(months, start=1)
+        ])
+        rows.append(["", "TỔNG THU NHẬP CẢ NĂM", format_vnd(report["total"])])
+        table = Table(rows, colWidths=[1.3 * cm, 6.25 * cm, 8.4 * cm], repeatRows=1)
+        table.setStyle(TableStyle([
+            ("FONTNAME", (0, 0), (-1, -1), font_name),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#C89B52")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#10263F")),
+            ("BACKGROUND", (0, 1), (-1, 1), colors.HexColor("#FCF8F0")),
+            ("BACKGROUND", (0, 3), (-1, 3), colors.HexColor("#FCF8F0")),
+            ("BACKGROUND", (0, 5), (-1, 5), colors.HexColor("#FCF8F0")),
+            ("BACKGROUND", (0, 7), (-1, 7), colors.HexColor("#FCF8F0")),
+            ("BACKGROUND", (0, 9), (-1, 9), colors.HexColor("#FCF8F0")),
+            ("BACKGROUND", (0, 11), (-1, 11), colors.HexColor("#FCF8F0")),
+            ("BACKGROUND", (0, 13), (-1, 13), colors.HexColor("#F5E7C7")),
+            ("TEXTCOLOR", (0, 13), (-1, 13), colors.HexColor("#10263F")),
+            ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#E1D6C5")),
+            ("ALIGN", (0, 0), (0, -1), "CENTER"),
+            ("ALIGN", (2, 1), (2, -1), "RIGHT"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 4.5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4.5),
+        ]))
+        exported_at = datetime.now().strftime("%d/%m/%Y, %H:%M")
+        report_preparer = str(session.get("user", {}).get("full_name", "")).strip()
+        signature_name = report_preparer if report_preparer else " "
+        signature = Table([
+            [Paragraph(f"Ngày lập báo cáo: {exported_at}", small_style)],
+            [Paragraph("Người lập báo cáo", center_style)],
+            [Spacer(1, 0.72 * cm)],
+            [Paragraph(signature_name, center_style)],
+        ], colWidths=[6.3 * cm])
+        signature.setStyle(TableStyle([
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ]))
+        document.build([
+            brand,
+            Spacer(1, 0.1 * cm),
+            gold_rule,
+            Spacer(1, 0.22 * cm),
+            Paragraph("BÁO CÁO THỐNG KÊ THU NHẬP", title_style),
+            Paragraph("LUMIHOTEL – HOTEL MANAGEMENT", center_style),
+            Spacer(1, 0.12 * cm),
+            Paragraph(f"Báo cáo năm {report['year']} • Xuất lúc {exported_at}", center_style),
+            Spacer(1, 0.22 * cm),
+            overview,
+            Spacer(1, 0.23 * cm),
+            Paragraph("CHI TIẾT DOANH THU THEO THÁNG", body_style),
+            Spacer(1, 0.08 * cm),
+            table,
+            Spacer(1, 0.18 * cm),
+            Paragraph("GHI CHÚ", body_style),
+            Paragraph(
+                "• Doanh thu được tổng hợp từ dữ liệu hợp lệ của hệ thống.<br/>"
+                "• Các tháng không có doanh thu được hiển thị 0 đ.<br/>"
+                "• Tổng thu nhập năm bằng tổng doanh thu của 12 tháng.<br/>"
+                "• Báo cáo được xuất từ hệ thống LumiHotel – Hotel Management.",
+                small_style,
+            ),
+            Spacer(1, 0.08 * cm),
+            Table([["", signature]], colWidths=[9.65 * cm, 6.3 * cm]),
+            PageBreak(),
+            Paragraph("BIỂU ĐỒ THU NHẬP THEO THÁNG", title_style),
+            Paragraph(f"Theo dõi biến động doanh thu trong năm {report['year']}", center_style),
+            Spacer(1, 0.6 * cm),
+            build_revenue_pdf_chart(months, font_name),
+            Spacer(1, 0.4 * cm),
+            Paragraph("Cột nâu đậm thể hiện tháng có doanh thu cao nhất." if has_revenue else "Năm được chọn chưa có doanh thu.", small_style),
+            Paragraph("Số tiền chính xác của từng tháng được trình bày trong bảng chi tiết.", small_style),
+        ], onFirstPage=draw_pdf_footer, onLaterPages=draw_pdf_footer)
+        buffer.seek(0)
+        return send_file(
+            buffer,
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=f"LumiHotel_ThongKeThuNhap_{report['year']}.pdf",
+        )
+    except Exception as exc:
+        app.logger.exception("Không thể xuất báo cáo doanh thu PDF")
+        return jsonify({"ok": False, "message": f"Không thể xuất PDF: {exc}"}), 500
 
 
 @app.get("/api/rooms")
@@ -293,6 +594,61 @@ def delete_room(room_id):
 
     ok, message = room_service.delete_room(room_id)
     return jsonify({"ok": ok, "message": message}), 200 if ok else 400
+
+
+def history_access_error():
+    user = login_required()
+    if not user:
+        return jsonify({"ok": False, "message": "Vui lòng đăng nhập để xem lịch sử."}), 401
+    profile = auth_service.get_profile(user.get("id"))
+    # Staff already access booking/customer data through /api/bookings.
+    # Keep history consistent with those operational roles; check the live account.
+    if not profile or profile["role"] not in ("manager", "staff"):
+        return jsonify({"ok": False, "message": "Tài khoản không có quyền xem lịch sử đặt phòng."}), 403
+    return None
+
+
+@app.get("/booking-history")
+def booking_history_page():
+    # The shell contains no customer data; both data endpoints enforce permission.
+    return render_template("booking_history.html")
+
+
+@app.get("/api/booking-history")
+def booking_history():
+    error = history_access_error()
+    if error is not None:
+        return error
+    try:
+        year = int(request.args.get("year", ""))
+        month = int(request.args.get("month", ""))
+        page = int(request.args.get("page", "1"))
+        status = request.args.get("status", "")
+        payment = request.args.get("payment", "")
+        search = request.args.get("search", "").strip()
+        if not (1 <= year <= 9999 and 1 <= month <= 12 and 1 <= page <= 1000000):
+            raise ValueError
+        if status not in ("", "booked", "checked_in", "checked_out", "cancelled") or payment not in ("", "unknown") or len(search) > 200:
+            raise ValueError
+    except ValueError:
+        return jsonify({"ok": False, "message": "Tháng, năm hoặc bộ lọc không hợp lệ."}), 400
+    result = booking_service.get_revenue_history(year, month, search, status, page)
+    response = jsonify({"ok": True, **result})
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@app.get("/api/booking-history/<int:booking_id>")
+def booking_history_detail(booking_id):
+    error = history_access_error()
+    if error is not None:
+        return error
+    booking = booking_service.get_history_detail(booking_id)
+    if booking is None:
+        return jsonify({"ok": False, "message": "Không tìm thấy đơn đặt phòng."}), 404
+    response = jsonify({"ok": True, "booking": booking})
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.get("/api/bookings")

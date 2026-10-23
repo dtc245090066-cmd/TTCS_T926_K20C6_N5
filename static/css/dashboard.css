@@ -13,9 +13,26 @@
 .main:has([data-view-panel="overview"].active){padding-top:6px}
 .main:has([data-view-panel="overview"].active) .topbar{margin-bottom:0}
 .main:has([data-view-panel="overview"].active) .section-page-head{margin-top:0}
-.main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active, [data-view-panel="room-types"].active, [data-view-panel="checkout"].active){padding-top:6px}
-.main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active, [data-view-panel="room-types"].active, [data-view-panel="checkout"].active) .topbar{margin-bottom:0}
-.main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active, [data-view-panel="room-types"].active, [data-view-panel="checkout"].active) .section-page-head{margin-top:0}
+.main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active, [data-view-panel="room-types"].active, [data-view-panel="checkout"].active, [data-view-panel="revenue"].active){padding-top:6px}
+.main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active, [data-view-panel="room-types"].active, [data-view-panel="checkout"].active, [data-view-panel="revenue"].active) .topbar{margin-bottom:0}
+.main:has([data-view-panel="rooms"].active, [data-view-panel="room-list"].active, [data-view-panel="room-types"].active, [data-view-panel="checkout"].active, [data-view-panel="revenue"].active) .section-page-head{margin-top:0}
+.stats-grid{margin-bottom:12px}
+.revenue-panel{padding:18px 20px 10px}
+.revenue-summary-card{display:flex;flex-direction:column;gap:6px;padding:16px 18px;margin:18px 0 16px;border:1px solid var(--line);border-radius:12px;background:linear-gradient(135deg,#fffaf2,#fbf1e1)}
+.revenue-summary-label{font-size:11px;letter-spacing:1.2px;color:var(--muted);text-transform:uppercase}
+.revenue-summary-value{font-size:30px;font-weight:700;color:var(--brown)}
+.revenue-table{margin-top:8px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.revenue-table th,.revenue-table td{padding:12px 14px;border-bottom:1px solid #efe7df;text-align:left}
+.revenue-table thead th{background:#f9f2e9;color:#7a685d;text-transform:uppercase;letter-spacing:.8px}
+.revenue-table tbody tr:nth-child(even){background:#fcfaf7}
+.revenue-table tbody tr:last-child td{border-bottom:0}
+.revenue-chart-card{margin:24px 0 12px;padding:22px;min-width:0;border:1px solid var(--line);border-radius:14px;background:#fffdf9}
+.revenue-chart-card h3{margin:0;color:var(--brown);font-size:20px}
+.revenue-chart-description,.revenue-chart-message{margin:8px 0 16px;font-size:13px;line-height:1.6;color:var(--muted)}
+.revenue-chart-message:empty{display:none}
+.revenue-chart-message.is-error{color:#a33d2d}
+.revenue-chart-wrap{position:relative;width:100%;min-width:0;height:340px}
+@media(max-width:600px){.revenue-chart-card{padding:14px;margin-top:18px}.revenue-chart-card h3{font-size:17px}.revenue-chart-wrap{height:280px}}
 .stats-grid{margin-bottom:12px}
 .frontdesk-arrivals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0 0 18px}
 .frontdesk-arrivals>div{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:54px;padding:10px 15px;border:1px solid var(--line);border-radius:11px;background:var(--paper)}
@@ -233,9 +250,30 @@
 .booking-room-details>span{display:flex;justify-content:space-between;gap:8px;color:var(--muted);font-size:11px}
 .booking-room-details strong{color:var(--ink);text-align:right}
 .booking-room-description{grid-column:1/-1;margin:0;color:var(--muted);font-size:11px;line-height:1.5}
+#bookingSummary>div{display:flex;align-items:baseline;justify-content:space-between;gap:12px;line-height:1.5}
+#bookingSummary>div>span{flex:0 0 auto;color:var(--muted);font-size:14px;font-weight:500}
+#bookingSummary>div>strong{min-width:0;color:var(--ink);font-size:14px;font-weight:600;text-align:right;overflow-wrap:anywhere}
+#bookingSummary>.total>span{font-weight:600}
+#bookingSummary>.total>strong{font-size:16px;font-weight:700}
 #bookingCheckOutError:not(:empty){margin-top:-6px}
 #profileModal{padding-top:var(--navbar-height)}
 .profile-modal-box{max-height:calc(100vh - var(--navbar-height) - 24px);max-height:calc(100dvh - var(--navbar-height) - 24px);overflow-y:auto;overscroll-behavior:contain}
+.profile-modal-box{width:min(760px,100%)}
+.profile-fields{min-width:0;margin-top:12px}
+.profile-field{display:grid;grid-template-columns:minmax(145px,205px) minmax(0,1fr) 34px;gap:10px;align-items:center;min-height:48px;border-bottom:1px solid #ebe3d9}
+.profile-fields [hidden]{display:none!important}
+.profile-field:last-child{border-bottom:0}
+.profile-field>label{margin:0!important;color:#75685d;font-size:12px!important;font-weight:600}
+.profile-field-value{min-width:0;overflow-wrap:anywhere;color:var(--ink);font-size:13px;font-weight:600}
+.profile-field input:not([type="checkbox"]):not([type="hidden"]):not([type="file"]),.profile-field select{width:100%;min-width:0;min-height:36px;padding:6px 9px;font-size:13px}
+.profile-edit-button{display:grid;place-items:center;width:32px;height:32px;border:1px solid transparent;border-radius:8px;background:transparent;color:#927047;cursor:pointer}
+.profile-edit-button:hover,.profile-edit-button:focus-visible{border-color:#e5d6c2;background:#f8f1e7;outline:0}
+.profile-edit-button svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;stroke-width:1.6}
+.profile-form-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:18px}
+.profile-form-actions .text-link{margin-right:auto;border:0;background:transparent;color:#927047;font-size:13px;font-weight:700;cursor:pointer}
+.profile-form-actions .primary-btn{min-width:130px}
+.profile-modal-box .form-message{min-height:0;margin:12px 0 0}
+.profile-modal-box .form-message:empty{display:none}
 #passwordModal .modal-box{max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow-y:auto;overscroll-behavior:contain}
 .modal-box label{font-size:14px;margin:14px 0}
 .modal-box input,.modal-box select,.modal-box textarea{min-height:50px;padding:12px 14px;font-size:15px}
@@ -247,7 +285,6 @@
 #passwordModal #passwordForm label{font-size:15px;gap:8px}
 #passwordModal #passwordForm input{min-height:50px;padding:0 14px;font-size:15px}
 #passwordModal #passwordForm input::placeholder{font-size:14px}
-#passwordModal #sendVerificationCodeBtn{min-height:60px;font-size:15px}
 #passwordModal .form-actions button{min-height:50px;font-size:15px}
 #passwordModal .form-actions .primary-btn{font-size:17px}
 
@@ -426,6 +463,12 @@ body{background-size:auto,auto,auto,52px 52px,52px 52px;background-repeat:no-rep
   .modal-box .form-actions button{width:100%;min-width:0;min-height:46px;padding:10px}
   #profileModal{padding:10px}
   .profile-modal-box{max-height:calc(90vh - 20px);max-height:calc(90dvh - 20px)}
+  .profile-field{grid-template-columns:minmax(116px,38%) minmax(0,1fr) 32px;gap:8px;min-height:48px}
+  .profile-field>label{font-size:11px!important}
+  .profile-field-value{font-size:12px}
+  .profile-modal-box .profile-form-actions{display:flex;flex-wrap:wrap}
+  .profile-modal-box .profile-form-actions>button{width:auto}
+  .profile-form-actions .text-link{flex:1 0 100%;order:3;margin:0;text-align:left}
   #bookingModal .modal-box{width:100%;padding:16px}
   #bookingModal .modal-box .form-actions{bottom:-16px;margin:8px -16px -16px;padding:9px 16px 12px}
   .booking-room-summary{grid-template-columns:68px minmax(0,1fr);gap:8px 10px;margin:8px 0;padding:9px}
@@ -469,6 +512,9 @@ body{background-size:auto,auto,auto,52px 52px,52px 52px;background-repeat:no-rep
 .checkout-confirmation-cancel:hover{border-color:#c9c1b8!important;background:#e6e2dd;transform:translateY(-2px);box-shadow:0 6px 14px rgba(58,48,39,.12)}
 .checkout-confirmation-submit{background:#c62828;color:#fff}
 .checkout-confirmation-submit:hover{background:#941d1d;transform:translateY(-2px);box-shadow:0 7px 16px rgba(148,29,29,.3)}
+.export-pdf-confirmation .checkout-confirmation-icon{background:#f8e8bd;color:#966829}
+.export-pdf-confirmation .checkout-confirmation-submit{background:linear-gradient(135deg,#c89b52,#8a6035)}
+.export-pdf-confirmation .checkout-confirmation-submit:hover{background:linear-gradient(135deg,#d8af65,#77502d);box-shadow:0 7px 16px rgba(138,96,53,.3)}
 .checkout-confirmation-actions button:active{transform:translateY(0) scale(.98)}
 .checkout-confirmation-actions button:focus-visible,.checkout-confirmation-close:focus-visible{outline:3px solid rgba(198,40,40,.3);outline-offset:3px}
 @keyframes checkout-overlay-in{from{opacity:0}to{opacity:1}}
